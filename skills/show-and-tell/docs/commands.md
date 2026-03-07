@@ -12,7 +12,9 @@ Usage: show <target> [OPTIONS]
 Targets:
   <file>                   Open file in Neovim
   <file>:<line>            Open file at specific line
+  <file>:<start>-<end>     Highlight a line range (preferred for code sections)
   <file>#L<line>           Open file at specific line (URL fragment style)
+  <file>#L<start>-<end>    Highlight a line range (URL fragment style)
   http://... https://...   Open URL in browser
   cmd:<command>            Run command in shell pane
   pane:<id>                Focus tmux pane by ID
@@ -27,9 +29,13 @@ Options:
 ```bash
 show README.md                    # Open file in Neovim
 show src/main.py:42               # Open at line 42
-show src/main.py#L42              # Same (URL fragment style)
+show src/main.py:10-30            # Highlight lines 10-30 (preferred for code sections)
+show src/main.py#L42              # Same as :42 (URL fragment style)
+show src/main.py#L10-30           # Same as :10-30 (URL fragment style)
 show ~/Code/project/config.yaml   # Absolute path
 ```
+
+**Tip:** When showing a function, class, or block of code, use a range (`file:start-end`) rather than a single line. This gives the user full context without needing to scroll.
 
 The show command:
 - Uses nvim-remote to open files in existing Neovim instances
