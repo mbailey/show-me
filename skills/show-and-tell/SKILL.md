@@ -55,6 +55,19 @@ Check Chrome MCP available?
 
 The `show` command is a fallback for when Chrome MCP is unavailable.
 
+## Prefer Line Ranges Over Single Lines
+
+When showing code to the user, **prefer ranges** (`file:start-end`) over single lines (`file:line`).
+
+A single line rarely provides enough context. When pointing out a function, a bug, a block of logic, or a diff location, show the full range so the user sees the complete picture.
+
+| Instead of | Use |
+|------------|-----|
+| `show main.py:42` | `show main.py:38-55` (show the whole function) |
+| `show config.yaml:10` | `show config.yaml:8-15` (show the relevant block) |
+
+**Rule of thumb:** If you know the start line, find where the section ends and use a range.
+
 ## Usage
 
 **AI assistants:** Use full path `${CLAUDE_PLUGIN_ROOT}/bin/show` and `${CLAUDE_PLUGIN_ROOT}/bin/look`.
@@ -64,11 +77,22 @@ The `show` command is a fallback for when Chrome MCP is unavailable.
 ```bash
 show README.md                    # Open file
 show src/main.py:42               # Open at line 42
-show src/main.py:10-20            # Open highlighting lines 10-20
+show src/main.py:10-20            # Open highlighting lines 10-20 (preferred)
 show bin/show#L124-162            # Highlight function (URL fragment syntax)
 show https://github.com/repo      # Open URL
 show "cmd:git status"             # Run command
 show pane:15                      # Focus pane
+```
+
+### File Syntax Variants
+
+All four forms are supported for specifying lines:
+
+```bash
+show file:line                    # Single line
+show file:start-end               # Line range (preferred)
+show file#Lline                   # URL fragment style
+show file#Lstart-end              # URL fragment range
 ```
 
 ### look - Observe Context
