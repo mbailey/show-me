@@ -3,14 +3,14 @@ description: Display files, URLs, or command output for the user to see
 argument-hint: <target>
 ---
 
-# /show-and-tell:show
+# /show-me:show
 
 Display content for the user to view in the appropriate application.
 
 ## Usage
 
 ```
-/show-and-tell:show <target>
+/show-me:show <target>
 ```
 
 ## Targets
@@ -27,11 +27,11 @@ Display content for the user to view in the appropriate application.
 ## Examples
 
 ```
-/show-and-tell:show README.md
-/show-and-tell:show src/main.py:42
-/show-and-tell:show src/main.py:10-30
-/show-and-tell:show https://github.com/owner/repo
-/show-and-tell:show cmd:git status
+/show-me:show README.md
+/show-me:show src/main.py:42
+/show-me:show src/main.py:10-30
+/show-me:show https://github.com/owner/repo
+/show-me:show cmd:git status
 ```
 
 **Tip:** Prefer ranges (`file:start-end`) over single lines when showing functions, blocks, or sections of code.

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common issues and solutions for show-and-tell commands.
+Common issues and solutions for show-me commands.
 
 ## show: File doesn't open
 

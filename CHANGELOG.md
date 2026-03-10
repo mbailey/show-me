@@ -1,11 +1,19 @@
 # Changelog
 
-All notable changes to show-and-tell will be documented in this file.
+All notable changes to show-me will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - 2026-03-10
+
+### Changed
+
+- **Renamed plugin from `show-and-tell` to `show-me`** (SAT-36)
+  - Plugin name, skill namespace, and command prefixes all updated
+  - GitHub repo renamed from `mbailey/show-and-tell` to `mbailey/show-me`
+  - Old repo URL redirects automatically
+  - Existing users should uninstall `show-and-tell` and install `show-me`
 
 ### Added
 

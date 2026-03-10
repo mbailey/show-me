@@ -1,8 +1,8 @@
-# show-and-tell
+# show-me
 
 Visual context sharing between AI assistants and users.
 
-Like the childhood classroom activity where kids show something and tell about it:
+Like Morpheus to Neo — "show me":
 - **show**: AI displays content for the user (files in Neovim, URLs in browser, commands in tmux)
 - **look**: AI observes what the user is viewing (screen context, active panes)
 
@@ -21,7 +21,7 @@ These are complementary - look verifies what show displayed.
 
 - **nvim-remote** - Enhanced Neovim socket integration
   - Provides automatic socket detection and richer editor status
-  - Without it: show-and-tell uses calculated socket paths (works fine)
+  - Without it: show-me uses calculated socket paths (works fine)
   - With it: More flexible socket discovery across multiple Neovim instances
 
 - **Browser** - For URL display (Firefox preferred, configurable via SHOW_BROWSER)
@@ -29,13 +29,13 @@ These are complementary - look verifies what show displayed.
 ## Installation
 
 ```bash
-mt package install show-and-tell
+mt package install show-me
 ```
 
 Or add to your working set:
 
 ```bash
-mt package add metool-packages-dev/show-and-tell
+mt package add metool-packages-dev/show-me
 ```
 
 ## Commands
@@ -64,12 +64,12 @@ look --hierarchy              # Show tmux session/window/pane layout
 
 ### nvim-remote (optional)
 
-If nvim-remote is available, show-and-tell uses it for enhanced features:
+If nvim-remote is available, show-me uses it for enhanced features:
 
 - **Auto socket detection**: Finds the best Neovim socket automatically
 - **Richer status**: More detailed editor state in `look` output
 
-Without nvim-remote, show-and-tell:
+Without nvim-remote, show-me:
 - Uses calculated socket paths: `/tmp/nvim-tmux-pane-<pane_id>`
 - Uses direct `nvim --server` commands for file operations
 - **All core features work fully**
