@@ -1,13 +1,13 @@
 {
-  "name": "show-and-tell",
-  "version": "1.0.4",
+  "name": "show-me",
+  "version": "2.0.0",
   "description": "Visual context sharing between AI and users - display files/URLs/commands with 'show', observe screen context with 'look'",
   "author": {
     "name": "Mike Bailey",
     "url": "https://github.com/mbailey"
   },
-  "repository": "https://github.com/mbailey/show-and-tell",
-  "homepage": "https://github.com/mbailey/show-and-tell",
+  "repository": "https://github.com/mbailey/show-me",
+  "homepage": "https://github.com/mbailey/show-me",
   "license": "MIT",
   "keywords": [
     "tmux",

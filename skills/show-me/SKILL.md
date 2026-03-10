@@ -1,9 +1,9 @@
 ---
-name: show-and-tell
+name: show-me
 description: Visual context sharing. LOAD when user says "show me", "open in browser", or "look at".
 ---
 
-# show-and-tell
+# show-me
 
 Display content for users (files, URLs, commands) or observe their screen context.
 

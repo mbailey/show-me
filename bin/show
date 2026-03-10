@@ -3,7 +3,7 @@ set -o nounset -o pipefail -o errexit
 
 # show - Display files, URLs, or command output for the user
 #
-# Part of the show-and-tell package for visual context sharing
+# Part of the show-me package for visual context sharing
 # between AI assistants and users.
 
 VERSION="1.1.0"

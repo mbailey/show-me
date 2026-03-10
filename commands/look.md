@@ -3,14 +3,14 @@ description: Observe what the user is currently viewing (screen context)
 argument-hint: "[options] [target]"
 ---
 
-# /show-and-tell:look
+# /show-me:look
 
 Capture what the user is currently viewing with tmux hierarchy and pane content.
 
 ## Usage
 
 ```
-/show-and-tell:look [OPTIONS] [TARGET]
+/show-me:look [OPTIONS] [TARGET]
 ```
 
 ## Targets
@@ -30,11 +30,11 @@ Capture what the user is currently viewing with tmux hierarchy and pane content.
 ## Examples
 
 ```
-/show-and-tell:look
-/show-and-tell:look -H
-/show-and-tell:look -l 100
-/show-and-tell:look %15,%16
-/show-and-tell:look window
+/show-me:look
+/show-me:look -H
+/show-me:look -l 100
+/show-me:look %15,%16
+/show-me:look window
 ```
 
 ## Implementation

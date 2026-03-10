@@ -3,7 +3,7 @@ set -o nounset -o pipefail -o errexit
 
 # look - Observe what the user is currently viewing
 #
-# Part of the show-and-tell package for visual context sharing
+# Part of the show-me package for visual context sharing
 # between AI assistants and users.
 
 VERSION="1.0.0"
