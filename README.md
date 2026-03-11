@@ -28,14 +28,22 @@ These are complementary - look verifies what show displayed.
 
 ## Installation
 
+### Claude Code
+
 ```bash
-mt package install show-me
+claude plugin install mbailey/show-me
 ```
 
-Or add to your working set:
+### GitHub Copilot CLI
 
 ```bash
-mt package add metool-packages-dev/show-me
+copilot plugin install mbailey/show-me
+```
+
+### metool
+
+```bash
+mt package install show-me
 ```
 
 ## Commands
