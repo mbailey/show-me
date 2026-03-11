@@ -30,8 +30,17 @@ These are complementary - look verifies what show displayed.
 
 ### Claude Code
 
+Load directly from a local clone:
+
 ```bash
-claude plugin install mbailey/show-me
+claude --plugin-dir /path/to/show-me
+```
+
+Or install via a marketplace that includes show-me:
+
+```bash
+/plugin marketplace add <marketplace-source>
+/plugin install show-me@<marketplace-name>
 ```
 
 ### GitHub Copilot CLI
