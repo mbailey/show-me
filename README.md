@@ -1,4 +1,4 @@
-# show-me
+# show-me — Claude Code Plugin
 
 Visual context sharing between AI assistants and users.
 
@@ -28,7 +28,9 @@ These are complementary - look verifies what show displayed.
 
 ## Installation
 
-### Claude Code
+### Claude Code (and GitHub Copilot CLI)
+
+> **Note:** GitHub Copilot CLI supports the same `--plugin-dir` flag — these instructions work for both tools.
 
 Load directly from a local clone:
 
@@ -39,14 +41,8 @@ claude --plugin-dir /path/to/show-me
 Or install via a marketplace that includes show-me:
 
 ```bash
-/plugin marketplace add <marketplace-source>
-/plugin install show-me@<marketplace-name>
-```
-
-### GitHub Copilot CLI
-
-```bash
-copilot plugin install mbailey/show-me
+/plugin marketplace add mbailey/plugins
+/plugin install show-me@mbailey
 ```
 
 ### metool
@@ -97,4 +93,4 @@ The `look` command captures screen content. Use responsibly and only when contex
 
 ## See Also
 
-- [SKILL.md](SKILL.md) - Claude Code skill for AI integration
+- [SKILL.md](skills/show-me/SKILL.md) - Claude Code skill for AI integration
