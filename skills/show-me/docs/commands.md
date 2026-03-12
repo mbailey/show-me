@@ -17,7 +17,8 @@ Targets:
   <file>#L<start>-<end>    Highlight a line range (URL fragment style)
   http://... https://...   Open URL in browser
   cmd:<command>            Run command in shell pane
-  pane:<id>                Focus tmux pane by ID
+  pane:<id>                Focus tmux pane by ID (cross-session)
+  pane:self                Focus the current pane (agent self-focus)
 
 Options:
   -s, --session NAME       Tmux session for show window (default: show)
@@ -67,10 +68,17 @@ Commands run in the shell pane of the "show" tmux session, allowing the user to 
 
 ### Focus specific pane
 
+Focus works across tmux sessions -- if the target pane is in a different
+session, show will switch the client to that session automatically.
+
 ```bash
-show pane:15                      # Focus pane %15
+show pane:15                      # Focus pane %15 (even in another session)
 show pane:%23                     # With explicit % prefix
+show pane:self                    # Focus agent's own pane (uses $TMUX_PANE)
 ```
+
+The `pane:self` target is useful for multi-agent workflows where an agent
+wants to pull the user's focus to its own tmux pane.
 
 ### Advanced options
 
