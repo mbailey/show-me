@@ -1,6 +1,6 @@
 ---
 name: show
-description: Display files, URLs, or command output for the user to see
+description: Displays files, URLs, command output or your tmux pane for the user to see. Use whenever USER makes a request like "show me" or "show yourself"
 argument-hint: <target>
 ---
 
@@ -15,6 +15,7 @@ Display content for the user in the appropriate application.
 - `http://...` or `https://...` — Open URL in browser
 - `cmd:<command>` — Run command in shell pane
 - `pane:<id>` — Focus tmux pane
+- `pane:self` — Focus the agent's own pane (use for "show yourself")
 
 **Tip:** Prefer ranges (`file:start-end`) over single lines for code.
 
