@@ -240,13 +240,24 @@ focus_pane() {
   target_session=$(tmux list-panes -a -F "#{pane_id} #{session_name}" \
     | grep "^${pane_id} " | cut -d' ' -f2)
 
-  # Get the current session (what the client is viewing)
-  local current_session
-  current_session=$(tmux display-message -p '#{session_name}' 2>/dev/null || true)
+  # Find the user's client and switch it to the target session
+  # Priority: focused client > first attached client
+  local client_tty=""
+  client_tty=$(tmux list-clients -F "#{client_tty} #{client_flags}" 2>/dev/null \
+    | grep "focused" | head -1 | cut -d' ' -f1)
+  if [[ -z "$client_tty" ]]; then
+    # No focused client, use first attached
+    client_tty=$(tmux list-clients -F "#{client_tty}" 2>/dev/null | head -1)
+  fi
 
-  # Switch client to target session if different
-  if [[ -n "$target_session" && "$target_session" != "$current_session" ]]; then
-    tmux switch-client -t "$target_session" 2>/dev/null || true
+  if [[ -n "$client_tty" && -n "$target_session" ]]; then
+    # Get the client's current session
+    local client_session
+    client_session=$(tmux list-clients -F "#{client_tty} #{client_session}" 2>/dev/null \
+      | grep "^${client_tty} " | cut -d' ' -f2)
+    if [[ "$client_session" != "$target_session" ]]; then
+      tmux switch-client -c "$client_tty" -t "$target_session" 2>/dev/null || true
+    fi
   fi
 
   tmux select-window -t "$window_target" 2>/dev/null
