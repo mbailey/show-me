@@ -573,22 +573,20 @@ handle_diff() {
   if [[ -S "$socket_path" ]]; then
     # Neovim already running — send DiffviewOpen command
     if wait_for_nvim_socket "$socket_path" 5 0.2; then
-      # Change to git root first, then open DiffView
-      nvim --server "$socket_path" --remote-send "<Esc>:cd ${git_root}<CR>:${nvim_diffview_cmd}<CR>" 2>/dev/null
+      # Close any dashboard/special buffer, cd to git root, then open DiffView
+      nvim --server "$socket_path" --remote-send "<Esc>:silent! Snacks.dashboard.close()<CR>:cd ${git_root}<CR>:${nvim_diffview_cmd}<CR>" 2>/dev/null
     else
       echo "Error: Neovim socket exists but not responding: $socket_path" >&2
       return 1
     fi
   else
-    # Start Neovim in the git root, then open DiffView
-    local nvim_cmd="cd '${git_root}' && nvim --listen '${socket_path}'"
+    # Start Neovim in the git root with DiffView as startup command
+    # Using +command avoids race with dashboard and plugin lazy-loading
+    local escaped_cmd="${nvim_diffview_cmd// /\\ }"
+    local nvim_cmd="cd '${git_root}' && nvim --listen '${socket_path}' +${escaped_cmd}"
     tmux send-keys -t "$pane_id" "$nvim_cmd" Enter
 
-    if wait_for_nvim_socket "$socket_path"; then
-      # Small delay for Neovim to fully initialize plugins
-      sleep 0.3
-      nvim --server "$socket_path" --remote-send ":${nvim_diffview_cmd}<CR>" 2>/dev/null
-    else
+    if ! wait_for_nvim_socket "$socket_path"; then
       echo "Started Neovim in ${session}:${window} (socket startup slow, DiffView may not have opened)" >&2
     fi
   fi
