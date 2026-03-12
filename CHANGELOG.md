@@ -5,6 +5,31 @@ All notable changes to show-me will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-03-12
+
+### Changed
+
+- **Migrated commands to skills for cross-tool portability** (SHOW-42)
+  - Moved `commands/show.md` → `skills/show/SKILL.md`
+  - Moved `commands/look.md` → `skills/look/SKILL.md`
+  - Follows the Agent Skills open standard (agentskills.io)
+  - Plugin now portable to Copilot CLI, Kiro, and other adopters
+  - Slash commands unchanged: `/show-me:show`, `/show-me:look`
+  - 3 skills, 0 commands
+
+### Added
+
+- **Cross-session tmux focus support** (SHOW-46)
+  - `show pane:<id>` now switches sessions when target pane is in a different tmux session
+  - Uses `tmux switch-client` for cross-session navigation
+  - All focus sites (file, cmd, diff, pane) now session-aware
+  - New `pane:self` target — agents can focus their own pane (`show pane:self`)
+  - Enables multi-agent workflows where agents pull user focus across sessions
+
+- **GitHub Copilot CLI plugin support** (PR #6)
+  - Copilot CLI supports same `--plugin-dir` flag as Claude Code
+  - README consolidated install instructions for both tools
+
 ## [2.0.0] - 2026-03-10
 
 ### Changed
