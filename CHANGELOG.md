@@ -2,164 +2,60 @@
 
 All notable changes to show-me will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased]
 
-## [2.1.0] - 2026-03-12
+## [2.0.3] - 2026-03-13
 
-### Changed
+### Improved
 
-- **Migrated commands to skills for cross-tool portability** (SHOW-42)
-  - Moved `commands/show.md` → `skills/show/SKILL.md`
-  - Moved `commands/look.md` → `skills/look/SKILL.md`
-  - Follows the Agent Skills open standard (agentskills.io)
-  - Plugin now portable to Copilot CLI, Kiro, and other adopters
-  - Slash commands unchanged: `/show-me:show`, `/show-me:look`
-  - 3 skills, 0 commands
+- Skill docs now trigger on "show yourself" — agents understand `pane:self` without extra prompting
+- Fixed broken `make release` command (updated to `claude-plugin-release`)
 
-### Added
+## [2.0.2] - 2026-03-12
 
-- **Cross-session tmux focus support** (SHOW-46)
-  - `show pane:<id>` now switches sessions when target pane is in a different tmux session
-  - Uses `tmux switch-client` for cross-session navigation
-  - All focus sites (file, cmd, diff, pane) now session-aware
-  - New `pane:self` target — agents can focus their own pane (`show pane:self`)
-  - Enables multi-agent workflows where agents pull user focus across sessions
+### Fixed
 
-- **GitHub Copilot CLI plugin support** (PR #6)
-  - Copilot CLI supports same `--plugin-dir` flag as Claude Code
-  - README consolidated install instructions for both tools
+- Cross-session pane switching now targets the user's actual terminal client instead of the agent's, so focus lands where you're looking
 
-## [2.0.0] - 2026-03-10
-
-### Changed
-
-- **Renamed plugin from `show-and-tell` to `show-me`** (SAT-36)
-  - Plugin name, skill namespace, and command prefixes all updated
-  - GitHub repo renamed from `mbailey/show-and-tell` to `mbailey/show-me`
-  - Old repo URL redirects automatically
-  - Existing users should uninstall `show-and-tell` and install `show-me`
+## [2.0.1] - 2026-03-12
 
 ### Added
 
-- **Add line range highlighting** (SAT-6)
-  - Highlight multiple lines when opening files in Neovim
-  - Support colon syntax: `show file.py:10-20` for lines 10-20
-  - Support URL fragment syntax: `show file.py#L10-20`
-  - Use Neovim visual line mode for clear highlighting
-  - Maintain backward compatibility with single line syntax (`:42` or `#L42`)
+- **Git diff viewer** — `show diff` opens DiffView in Neovim for unstaged changes; `show diff:main` compares against a branch
+- **Cross-session focus** — `show pane:<id>` and `show pane:self` work across tmux sessions, not just within the current one
+- **Copilot CLI support** — plugin works with GitHub Copilot CLI using the same `--plugin-dir` flag
+- **Test framework** — `make test` runs the test suite
 
 ### Changed
 
-- **Prioritize Chrome MCP for URL navigation** (SAT-16)
-  - Guide AI to check Chrome MCP first when showing URLs
-  - Add decision tree for URL navigation flow
-  - Use show command as fallback when Chrome MCP unavailable
-  - Include domain permission handling guidance for Chrome
+- Commands migrated to skills format for cross-tool portability (works with Claude Code, Copilot CLI, and other adopters of the Agent Skills standard)
+- Renamed from `show-and-tell` to `show-me` (old GitHub URL redirects automatically)
+- Line range highlighting: `show file.py:10-20` or `show file.py#L10-20`
+- Chrome MCP preferred for URL navigation when available
 
 ## [1.0.4] - 2026-01-07
 
 ### Added
 
-- **Configurable tmux session/window targeting** (SAT-12)
-  - Auto-detect current tmux session instead of hardcoded "show" session
-  - Add `-w/--window` flag and `SHOW_WINDOW` env var for window configuration
-  - Add `--no-focus` flag to prevent switching focus to show window
-  - Add `--no-zoom` flag to prevent auto-zooming the pane
-  - Add `--no-attach` flag to prevent auto-attaching terminal
-  - Session resolution priority: CLI flag → env var → current session → attached session → any session → create new
-  - Tmux availability check with install instructions for macOS, Ubuntu, Fedora
+- **Configurable targeting** — choose which tmux session and window to open files in
+  - `-s/--session`, `-w/--window` flags and matching env vars
+  - `--no-focus`, `--no-zoom`, `--no-attach` for controlling behavior
+  - Smart session detection: current session > attached > any > create new
 
 ### Changed
 
-- **Security: Private socket directory** (SAT-12)
-  - Neovim sockets now use `$TMPDIR` (macOS) or `$XDG_RUNTIME_DIR` (Linux) instead of world-readable `/tmp`
-  - Fallback to `$HOME/.local/run` with 0700 permissions
-  - Socket naming: `nvim-show-pane-{id}` in private directory
-
-- **Simplified behavior** (SAT-12)
-  - Removed nvim-remote auto-detection for predictable file opening
-  - Show only connects to Neovim instances it created
-  - All files open in the configured session:window, not arbitrary Neovim instances
-
-- **Improved output** (SAT-12)
-  - Location reporting: "Opened file.txt in session:window" format
-  - Help text updated with new options and behavior
-
-### Breaking Changes
-
-- Default session changes from "show" to current session
-  - **Migration**: Set `SHOW_SESSION=show` to restore previous behavior
-- Neovim socket paths moved to private directory
-  - **Impact**: External tools referencing old socket paths need updating
-- nvim-remote auto-detection no longer used by default
-  - **Impact**: Files always open in configured session, not arbitrary Neovim
-
-## [1.0.3] - 2026-01-03
-
-### Changed
-
-- Updated plugin metadata
-- Removed SKILL.md from repository
-
-### Removed
-
-- Removed internal report file
-
-## [1.0.2] - 2026-01-03
-
-### Added
-
-- Makefile with release target for streamlined releases
-
-## [1.0.1] - 2026-01-02
-
-### Added
-
-- **Chrome Browser Integration** (SAT-5)
-  - Prefer Claude-in-Chrome MCP for URL handling when available
-  - Documentation for Chrome browser integration in SKILL.md
-
-### Changed
-
-- **Documentation restructure** (SAT-4)
-  - Split SKILL.md into minimal index + detailed docs/
-  - Improved organization and readability
+- Neovim sockets moved to private directory (`$TMPDIR` or `$XDG_RUNTIME_DIR`) for security
+- Show only connects to Neovim instances it created — predictable, no surprises
 
 ## [1.0.0] - 2025-12-30
 
 ### Added
 
-- **Auto-attach terminal functionality** (SAT-3)
-  - Automatically open terminal window if tmux session has no attached clients
-  - Configurable via `SHOW_AUTO_ATTACH` environment variable (default: true)
-  - macOS: Uses AppleScript to open Terminal.app
-  - Linux: Supports gnome-terminal, kitty, alacritty, xterm, konsole
-
-### Fixed
-
-- **Show command tmux session creation** (SAT-3)
-  - Properly create tmux session when it doesn't exist
-  - Better error reporting on failures
-  - Fixed session window creation logic
-
-### Changed
-
-- Simplified documentation: nvim-remote is optional
-- Updated skill description for clarity
-
-## Initial Release - 2025-12-29
-
-### Added
-
-- Core show command for displaying files, URLs, and command output
-- File opening in Neovim with line number support (`:line` and `#Lline` formats)
-- URL opening in browser (auto-detect or configured)
-- Command execution in tmux panes (`cmd:command` syntax)
-- Pane focus (`pane:id` syntax)
-- Neovim remote socket support for file opening
-- Optional nvim-remote integration for smart Neovim selection
-- Multi-platform support (macOS, Linux)
-- Configuration via environment variables and CLI flags
-- Claude Code plugin integration
-- Comprehensive documentation and skill files
+- **show** command — display files, URLs, and command output for users to see
+  - Open files in Neovim with line number support (`:42` or `#L42`)
+  - Open URLs in browser (auto-detects or uses configured browser)
+  - Run commands in tmux panes (`cmd:command`)
+  - Focus tmux panes (`pane:id`)
+- Auto-attach terminal if tmux session has no clients (macOS Terminal.app, Linux terminal emulators)
+- Works on macOS and Linux
+- Claude Code plugin with `/show-me:show` and `/show-me:look` skills
