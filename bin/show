@@ -6,7 +6,7 @@ set -o nounset -o pipefail -o errexit
 # Part of the show-me package for visual context sharing
 # between AI assistants and users.
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 # Configuration with defaults
 SHOW_SESSION="${SHOW_SESSION:-}"  # Empty = auto-detect current session
@@ -84,6 +84,9 @@ Targets:
   http://... https://...   Open URL in browser
   cmd:<command>            Run command in shell pane
   pane:<id>                Focus tmux pane by ID
+  diff                     Open DiffView (unstaged changes)
+  diff:<ref>               Open DiffView against ref (branch, commit, range)
+  diff:<ref> -- <path>     Open DiffView scoped to path
 
 Options:
   -s, --session NAME       Use specific tmux session
@@ -113,6 +116,10 @@ Examples:
   show https://github.com           # Open in browser
   show "cmd:git status"             # Show git status
   show --no-zoom file.txt           # Open without zooming pane
+  show diff                         # DiffView of unstaged changes
+  show diff:main                    # DiffView against main branch
+  show "diff:HEAD~3"                # DiffView of last 3 commits
+  show "diff:main -- src/"          # DiffView against main, scoped to src/
 
 Environment:
   SHOW_SESSION             Target tmux session (default: current/auto-detect)
@@ -522,6 +529,93 @@ handle_pane() {
   echo "Focused pane $pane_spec"
 }
 
+# Open git diff in Neovim DiffView
+# Requires sindrets/diffview.nvim plugin in Neovim config
+handle_diff() {
+  local target="$1"
+  local session="$2"
+  local window="$3"
+  local explicit_pane="${4:-}"
+
+  # Strip diff: prefix if present
+  local diff_args=""
+  if [[ "$target" == "diff" ]]; then
+    diff_args=""
+  elif [[ "$target" =~ ^diff:(.*)$ ]]; then
+    diff_args="${BASH_REMATCH[1]}"
+  fi
+
+  # Verify we're in a git repo
+  local git_root
+  git_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "Error: Not in a git repository" >&2
+    return 1
+  }
+
+  # Ensure session and window exist
+  get_or_create_show_window "$session" "$window"
+
+  local pane_id
+  if [[ -n "$explicit_pane" ]]; then
+    pane_id="$explicit_pane"
+  else
+    pane_id=$(get_editor_pane "$session" "$window")
+  fi
+
+  # Socket path in private directory
+  local socket_dir
+  socket_dir=$(get_socket_dir)
+  local socket_path="${socket_dir}/nvim-show-pane-${pane_id#%}"
+
+  # Build the DiffviewOpen command
+  local nvim_diffview_cmd="DiffviewOpen ${diff_args}"
+
+  if [[ -S "$socket_path" ]]; then
+    # Neovim already running — send DiffviewOpen command
+    if wait_for_nvim_socket "$socket_path" 5 0.2; then
+      # Close any dashboard/special buffer, cd to git root, then open DiffView
+      nvim --server "$socket_path" --remote-send "<Esc>:silent! Snacks.dashboard.close()<CR>:cd ${git_root}<CR>:${nvim_diffview_cmd}<CR>" 2>/dev/null
+    else
+      echo "Error: Neovim socket exists but not responding: $socket_path" >&2
+      return 1
+    fi
+  else
+    # Start Neovim in the git root with DiffView as startup command
+    # Using +command avoids race with dashboard and plugin lazy-loading
+    local escaped_cmd="${nvim_diffview_cmd// /\\ }"
+    local nvim_cmd="cd '${git_root}' && nvim --listen '${socket_path}' +${escaped_cmd}"
+    tmux send-keys -t "$pane_id" "$nvim_cmd" Enter
+
+    if ! wait_for_nvim_socket "$socket_path"; then
+      echo "Started Neovim in ${session}:${window} (socket startup slow, DiffView may not have opened)" >&2
+    fi
+  fi
+
+  # Build descriptive message
+  local description
+  if [[ -z "$diff_args" ]]; then
+    description="unstaged changes"
+  else
+    description="$diff_args"
+  fi
+  echo "Opened DiffView (${description}) in ${session}:${window}"
+
+  # Focus the pane if enabled
+  if [[ "$SHOW_FOCUS" == "true" ]]; then
+    tmux select-window -t "${session}:${window}" 2>/dev/null
+    tmux select-pane -t "$pane_id" 2>/dev/null
+  fi
+
+  # Zoom the pane if enabled
+  if [[ "$SHOW_ZOOM" == "true" ]]; then
+    local is_zoomed
+    is_zoomed=$(tmux display-message -t "$pane_id" -p '#{window_zoomed_flag}' 2>/dev/null)
+    if [[ "$is_zoomed" != "1" ]]; then
+      tmux resize-pane -t "$pane_id" -Z 2>/dev/null
+    fi
+  fi
+}
+
 # Detect target type and dispatch to handler
 detect_and_handle() {
   local target="$1"
@@ -532,6 +626,12 @@ detect_and_handle() {
   # URL (http:// or https://)
   if [[ "$target" =~ ^https?:// ]]; then
     handle_url "$target"
+    return
+  fi
+
+  # Git diff (diff or diff:ref)
+  if [[ "$target" == "diff" || "$target" =~ ^diff: ]]; then
+    handle_diff "$target" "$session" "$window" "$pane"
     return
   fi
 
