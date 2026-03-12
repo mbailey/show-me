@@ -12,4 +12,4 @@ test:
 	@bash tests/test_show.sh
 
 release:
-	@release
+	@claude-plugin-release
