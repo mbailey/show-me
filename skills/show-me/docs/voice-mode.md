@@ -81,9 +81,30 @@ AI (voice): "Yes, I can see you're viewing the error logs.
             when trying to connect to the database on port 5432."
 ```
 
+## Visual Conch (Focus Hold)
+
+When VoiceMode auto-focus-pane is enabled (`VOICEMODE_AUTO_FOCUS_PANE=true`),
+the speaking agent normally switches tmux focus to its own pane. But when
+you've just shown the user content with `show`, you don't want speaking to
+yank them back before they've read it.
+
+The `--hold` flag creates a "visual conch" — a cooldown that tells VoiceMode
+to skip auto-focus for the specified duration:
+
+```
+User (voice): "Show me the error log"
+AI: show --hold 60 /var/log/app.log
+AI (voice): "I've opened the error log. Take your time reading it."
+# Focus stays on the log for 60 seconds, even though the agent spoke
+```
+
+Without `--hold`, the default hold is 30 seconds. Use longer holds for
+documents the user needs time to read, shorter for quick glances.
+
 ## Tips for Voice Mode
 
 1. **Be specific**: "Show me the config file" vs "Show me settings.yaml"
 2. **Use line numbers**: "Go to line 42" or "Open main.py at line 100"
 3. **Request scrollback**: "Look at the last 100 lines" for command output
 4. **Check hierarchy first**: "Show me what panes I have open" uses `look -H`
+5. **Use --hold for long documents**: `show --hold 60 file.md` gives the user time to read

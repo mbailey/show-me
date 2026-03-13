@@ -82,6 +82,7 @@ show bin/show#L124-162            # Highlight function (URL fragment syntax)
 show https://github.com/repo      # Open URL
 show "cmd:git status"             # Run command
 show pane:15                      # Focus pane
+show --hold 60 README.md          # Hold focus for 60s (visual conch)
 ```
 
 ### File Syntax Variants
