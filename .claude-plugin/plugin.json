@@ -1,6 +1,6 @@
 {
   "name": "show-me",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Visual context sharing between AI and users - display files/URLs/commands with 'show', observe screen context with 'look'",
   "author": {
     "name": "Mike Bailey",
