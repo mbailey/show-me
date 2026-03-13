@@ -6,7 +6,18 @@ All notable changes to show-me will be documented in this file.
 
 ## [2.0.5] - 2026-03-13
 
+### Added
+
+- **`--hold` flag** — `show --hold 60 file.md` holds visual focus for 60 seconds, preventing VoiceMode auto-focus from switching away while the user reads
+- Hold duration written to sentinel file so VoiceMode reads the exact value per show command
+- Configurable default via `SHOW_HOLD_SECONDS` env var (default: 30s)
+- Skill docs updated with visual conch workflow and examples
+
 ## [2.0.4] - 2026-03-13
+
+### Added
+
+- **Visual conch** — when show takes focus, it writes a sentinel file (`~/.voicemode/focus-hold`) that tells VoiceMode auto-focus to back off for 30 seconds, preventing the speaking agent from yanking the user away before they've read what was shown
 
 ## [2.0.3] - 2026-03-13
 
