@@ -96,6 +96,8 @@ Options:
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
   --no-attach              Don't auto-attach terminal if no clients
+  --hold SECONDS           Hold visual focus for N seconds (default: 30)
+                           Prevents VoiceMode auto-focus from switching away
   -h, --help               Show this help
   -V, --version            Show version
 
@@ -127,6 +129,7 @@ Examples:
   show diff:main                    # DiffView against main branch
   show "diff:HEAD~3"                # DiffView of last 3 commits
   show "diff:main -- src/"          # DiffView against main, scoped to src/
+  show --hold 60 README.md          # Hold focus for 60s (long document)
 
 Environment:
   SHOW_SESSION             Target tmux session (default: current/auto-detect)
@@ -264,9 +267,9 @@ focus_pane() {
   tmux select-pane -t "$pane_id" 2>/dev/null
 
   # Signal VoiceMode that visual focus was just taken (visual conch).
-  # Suppresses auto-focus-pane for VOICEMODE_FOCUS_HOLD_SECONDS (default 30s).
+  # Suppresses auto-focus-pane for the hold duration (default 30s).
   mkdir -p ~/.voicemode 2>/dev/null
-  touch ~/.voicemode/focus-hold
+  echo "${SHOW_HOLD_SECONDS:-30}" > ~/.voicemode/focus-hold
 }
 
 # Get or create the show tmux session and window
@@ -734,6 +737,7 @@ EOF
   local window=""
   local pane=""
   local target=""
+  local hold_seconds=""
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -770,6 +774,10 @@ EOF
         SHOW_AUTO_ATTACH="false"
         shift
         ;;
+      --hold)
+        hold_seconds="$2"
+        shift 2
+        ;;
       -*)
         echo "Unknown option: $1" >&2
         exit 1
@@ -791,6 +799,12 @@ EOF
     echo "Run 'show --help' for usage" >&2
     exit 1
   fi
+
+  # Set hold duration: CLI --hold > env var > default 30
+  if [[ -n "$hold_seconds" ]]; then
+    SHOW_HOLD_SECONDS="$hold_seconds"
+  fi
+  export SHOW_HOLD_SECONDS="${SHOW_HOLD_SECONDS:-30}"
 
   # Resolve session: CLI > env var > auto-detect
   if [[ -z "$session" ]]; then
