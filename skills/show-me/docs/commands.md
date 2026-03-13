@@ -23,6 +23,9 @@ Targets:
 Options:
   -s, --session NAME       Tmux session for show window (default: show)
   -p, --pane ID            Target specific pane ID
+  --hold SECONDS           Hold visual focus for N seconds (default: 30)
+  --no-focus               Don't switch focus to show window
+  --no-zoom                Don't zoom the pane after showing
 ```
 
 ### Open files in Neovim
@@ -80,11 +83,25 @@ show pane:self                    # Focus agent's own pane (uses $TMUX_PANE)
 The `pane:self` target is useful for multi-agent workflows where an agent
 wants to pull the user's focus to its own tmux pane.
 
+### Focus hold (visual conch)
+
+When showing content, `--hold` tells VoiceMode auto-focus to not switch
+away for the specified duration. This prevents the speaking agent from
+yanking the user back before they've read what was shown.
+
+```bash
+show --hold 60 README.md          # Hold focus for 60s (long document)
+show --hold 10 output.log         # Quick glance, 10s hold
+show README.md                    # Default 30s hold
+```
+
 ### Advanced options
 
 ```bash
 show file.py -s dev               # Use "dev" session instead of "show"
 show file.py -p %36               # Open in specific pane
+show --no-focus file.py           # Open without switching focus
+show --no-zoom file.py            # Open without zooming pane
 ```
 
 ## look - Observe Context
@@ -202,6 +219,9 @@ Consider reviewing before sharing. Use -H to show hierarchy only without content
 |----------|---------|-------------|
 | `SHOW_SESSION` | `show` | Default tmux session name for show window |
 | `SHOW_BROWSER` | (auto) | Browser for URLs (e.g., `Firefox`, `Chrome`, `Safari`) |
+| `SHOW_HOLD_SECONDS` | `30` | Default focus hold duration in seconds |
+| `SHOW_FOCUS` | `true` | Switch focus to show window |
+| `SHOW_ZOOM` | `true` | Zoom pane after showing content |
 | `NVIM_SOCKET_PATH` | (auto) | Override Neovim socket path |
 
 ## Installation and Running Commands

@@ -17,6 +17,9 @@ Display content for the user in the appropriate application.
 - `pane:<id>` — Focus tmux pane
 - `pane:self` — Focus the agent's own pane (use for "show yourself")
 
+**Options:**
+- `--hold SECONDS` — Hold visual focus for N seconds (default: 30). Prevents VoiceMode auto-focus from switching away while the user reads.
+
 **Tip:** Prefer ranges (`file:start-end`) over single lines for code.
 
 ## Implementation
