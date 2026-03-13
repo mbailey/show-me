@@ -262,6 +262,11 @@ focus_pane() {
 
   tmux select-window -t "$window_target" 2>/dev/null
   tmux select-pane -t "$pane_id" 2>/dev/null
+
+  # Signal VoiceMode that visual focus was just taken (visual conch).
+  # Suppresses auto-focus-pane for VOICEMODE_FOCUS_HOLD_SECONDS (default 30s).
+  mkdir -p ~/.voicemode 2>/dev/null
+  touch ~/.voicemode/focus-hold
 }
 
 # Get or create the show tmux session and window
