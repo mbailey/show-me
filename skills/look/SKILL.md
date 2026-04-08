@@ -1,6 +1,6 @@
 ---
 name: look
-description: Observe what the user is currently viewing (screen context)
+description: "Captures the user's current screen context by reading tmux pane content, scrollback history, and window hierarchy. Use when the user says 'what's on my screen', 'look at my terminal', 'read my pane', 'check what I'm viewing', or when you need to observe the user's current terminal state before responding."
 argument-hint: "[options] [target]"
 ---
 

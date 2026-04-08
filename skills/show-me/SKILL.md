@@ -1,6 +1,6 @@
 ---
 name: show-me
-description: Visual context sharing. LOAD when user says "show me", "open in browser", or "look at".
+description: "Opens files in Neovim, launches URLs in Chrome or the default browser, runs commands in tmux shell panes, and captures the user's current screen context. Use when the user says 'show me', 'open in browser', 'look at', 'display this', 'view file', 'what's on my screen', or 'preview URL'."
 ---
 
 # show-me
@@ -112,53 +112,22 @@ look window                       # All panes in window
 - [Voice Mode](docs/voice-mode.md) - Hands-free workflows
 - [Troubleshooting](docs/troubleshooting.md) - Common issues
 
-## Chrome Browser Integration (Reference)
+## Chrome MCP Reference
 
-This section provides additional details on Chrome MCP integration. **See "Showing URLs - Default Behavior" above for the primary workflow.**
+Chrome MCP provides interactive browser control (scroll, click, forms, screenshots). Setup: install the Claude-in-Chrome extension and click the icon in Chrome.
 
-### Chrome Domain Permissions
+### Domain Permissions
 
-Chrome requires user approval for new domains (security feature).
+Chrome requires user approval for new domains. Before navigating, inform the user they may need to approve permissions. On timeout, offer to open in default browser instead.
 
-**Best practices:**
-- Before navigating: Inform user they may need to approve domain permissions
-- On timeout: Explain likely cause - "Chrome may be waiting for permission approval"
-- Offer fallback: "Would you like me to open in default browser instead?"
-
-**Common issue:** If navigation times out, it's usually because the user didn't see or approve the Chrome domain permission prompt.
-
-### Example: Show URL with Chrome MCP
-
-```bash
-# Step 1: Check if Chrome MCP is connected
-# Call: mcp__claude-in-chrome__tabs_context_mcp(createIfEmpty=true)
-
-# Step 2: If connected, inform user and navigate
-# "Opening in Chrome - you may need to approve domain permissions"
-# Call: mcp__claude-in-chrome__tabs_create_mcp (get a new tab)
-# Call: mcp__claude-in-chrome__navigate with the URL and tabId
-
-# Step 3: If not connected or timeout, fall back to show command
-show https://example.com
-```
-
-### Troubleshooting Chrome MCP
+### Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
 | `tabs_context_mcp` fails | Chrome extension not connected; use `show` command |
 | Tab ID invalid | Call `tabs_context_mcp` to get fresh tab IDs |
 | Extension disconnected mid-session | Graceful fallback to `show` command |
-| No Chrome MCP tools available | MCP not configured; use `show` command |
-
-### Setup
-
-To use Chrome MCP:
-1. Install the Claude-in-Chrome browser extension
-2. Open Chrome and click the Claude extension icon
-3. The extension connects to Claude Code via MCP
-
-When the extension is not connected, `tabs_context_mcp` will fail, and you should fall back to the standard `show` command.
+| Navigation timeout | User likely needs to approve domain permission; offer `show` fallback |
 
 ## Requirements
 
