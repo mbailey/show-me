@@ -1,6 +1,6 @@
 ---
 name: show
-description: Displays files, URLs, command output or your tmux pane for the user to see. Use whenever USER makes a request like "show me" or "show yourself"
+description: "Opens files in Neovim at specific lines, launches URLs in the browser, runs commands in a shell pane, or focuses tmux panes for visual display. Use when the user says 'show me', 'display', 'open this file', 'view', 'show yourself', 'look at this URL', or needs to visually present content on screen."
 argument-hint: <target>
 ---
 
