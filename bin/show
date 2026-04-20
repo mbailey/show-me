@@ -16,7 +16,7 @@ SHOW_AUTO_ATTACH="${SHOW_AUTO_ATTACH:-true}"
 SHOW_FOCUS="${SHOW_FOCUS:-true}"
 SHOW_ZOOM="${SHOW_ZOOM:-true}"
 SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty = content-type default (right for files, below for commands)
-SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-70}"  # Split pane percentage (default 70% for content)
+SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-}"  # Split pane percentage (default: 70% side, 30% top/bottom)
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
@@ -149,7 +149,8 @@ Environment:
   SHOW_ZOOM                Zoom pane after showing content (default: true)
   SHOW_LAYOUT              Layout mode (default: window)
                            Values: right, below, left, above, window, stacked
-  SHOW_SPLIT_SIZE          Split pane percentage (default: 70)
+  SHOW_SPLIT_SIZE          Split pane percentage (overrides direction defaults)
+                           Defaults: 70% for right/left, 30% for below/above
 
 EOF
 }
@@ -845,14 +846,15 @@ is_split_layout() {
 # Returns: new pane ID (e.g. %15) on stdout
 create_split_pane() {
   local direction="$1"
-  local size="${SHOW_SPLIT_SIZE:-70}"
   local flags=""
 
+  # Direction-aware default sizes: 70% for side splits (files), 30% for top/bottom (commands)
+  local size="${SHOW_SPLIT_SIZE:-}"
   case "$direction" in
-    right) flags="-h -p $size" ;;
-    below) flags="-fv -p $size" ;;
-    left)  flags="-hb -p $size" ;;
-    above) flags="-fvb -p $size" ;;
+    right) size="${size:-70}"; flags="-h -p $size" ;;
+    below) size="${size:-30}"; flags="-fv -p $size" ;;
+    left)  size="${size:-70}"; flags="-hb -p $size" ;;
+    above) size="${size:-30}"; flags="-fvb -p $size" ;;
     *)
       echo "Error: Invalid split direction: $direction" >&2
       return 1

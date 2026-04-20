@@ -4,6 +4,14 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Split pane targeting** — splits now anchor to the agent's pane (`$TMUX_PANE`) instead of the user's active pane, so clicking around doesn't change where the next `show` splits
+
+### Changed
+
+- **Direction-aware split sizes** — side splits (right/left) default to 70% for content-heavy file viewing; top/bottom splits (above/below) default to 30% for compact command output. `SHOW_SPLIT_SIZE` env var overrides when set.
+
 ## [2.1.0] - 2026-04-20
 
 ### Added
@@ -11,7 +19,7 @@ All notable changes to show-me will be documented in this file.
 - **Split pane layouts** — `show --layout right file.py` opens content in a split pane beside the conversation instead of switching to a separate window. Supports `right`, `below`, `left`, `above`, `window` (original behavior), and `stacked` (coming soon)
 - **`--here` shorthand** — `show --here file.py` opens in a split pane using the content-type default direction (right for files, below for commands)
 - **`SHOW_LAYOUT` env var** — controls the default layout mode. LLMs just call `show <target>` and the user's preference is applied automatically
-- **`SHOW_SPLIT_SIZE` env var** — controls split pane percentage (default: 70%)
+- **`SHOW_SPLIT_SIZE` env var** — controls split pane percentage (overrides direction defaults: 70% for side splits, 30% for top/bottom)
 - **Neovim pane reuse** — in split mode, subsequent file shows reuse the existing Neovim pane instead of creating new splits
 - **Stale socket cleanup** — crashed Neovim instances are detected and their sockets cleaned up automatically
 
