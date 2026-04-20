@@ -6,7 +6,7 @@ set -o nounset -o pipefail -o errexit
 # Part of the show-me package for visual context sharing
 # between AI assistants and users.
 
-VERSION="1.3.0"
+VERSION="1.4.0"
 
 # Configuration with defaults
 SHOW_SESSION="${SHOW_SESSION:-}"  # Empty = auto-detect current session
@@ -15,6 +15,8 @@ SHOW_BROWSER="${SHOW_BROWSER:-}"  # Empty means auto-detect
 SHOW_AUTO_ATTACH="${SHOW_AUTO_ATTACH:-true}"
 SHOW_FOCUS="${SHOW_FOCUS:-true}"
 SHOW_ZOOM="${SHOW_ZOOM:-true}"
+SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty = content-type default (right for files, below for commands)
+SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-50}"  # Split pane percentage (default 50%)
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
@@ -93,6 +95,10 @@ Options:
   -s, --session NAME       Use specific tmux session
   -w, --window NAME        Use specific window name (default: show)
   -p, --pane ID            Target specific pane ID
+  --layout VALUE           Layout mode: right, below, left, above, window, stacked
+                           Overrides SHOW_LAYOUT env var
+  --here                   Show in a split pane (shorthand for content-type default
+                           direction: right for files, below for commands)
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
   --no-attach              Don't auto-attach terminal if no clients
@@ -129,7 +135,10 @@ Examples:
   show diff:main                    # DiffView against main branch
   show "diff:HEAD~3"                # DiffView of last 3 commits
   show "diff:main -- src/"          # DiffView against main, scoped to src/
-  show --hold 60 README.md          # Hold focus for 60s (long document)
+  show --layout right README.md      # Open in split pane to the right
+  show --layout below "cmd:make"     # Run command in pane below
+  show --here README.md              # Split pane (default direction for type)
+  show --hold 60 README.md           # Hold focus for 60s (long document)
 
 Environment:
   SHOW_SESSION             Target tmux session (default: current/auto-detect)
@@ -138,6 +147,9 @@ Environment:
   SHOW_AUTO_ATTACH         Auto-attach terminal if no clients (default: true)
   SHOW_FOCUS               Switch focus to show window (default: true)
   SHOW_ZOOM                Zoom pane after showing content (default: true)
+  SHOW_LAYOUT              Layout mode (default: window)
+                           Values: right, below, left, above, window, stacked
+  SHOW_SPLIT_SIZE          Split pane percentage (default: 50)
 
 EOF
 }
@@ -362,6 +374,17 @@ handle_file() {
   local session="$2"
   local window="$3"
   local explicit_pane="${4:-}"
+  local layout="${5:-}"
+
+  # Resolve 'here' sentinel to 'right' for files
+  if [[ "$layout" == "here" ]]; then
+    layout="right"
+  fi
+
+  # Resolve 'stacked' to 'window' for now (SHOW-54 will implement stacked layout)
+  if [[ "$layout" == "stacked" ]]; then
+    layout="window"
+  fi
 
   # Parse file and line number/range
   local parsed
@@ -385,14 +408,24 @@ handle_file() {
     return 1
   fi
 
-  # Ensure session and window exist
-  get_or_create_show_window "$session" "$window"
-
   local pane_id
-  if [[ -n "$explicit_pane" ]]; then
-    pane_id="$explicit_pane"
+  local use_split=false
+  local display_location
+
+  if is_split_layout "$layout"; then
+    # Split mode: create pane in current window
+    use_split=true
+    pane_id=$(create_split_pane "$layout")
+    display_location="split ($layout)"
   else
-    pane_id=$(get_editor_pane "$session" "$window")
+    # Window mode: use separate show window (existing behavior)
+    get_or_create_show_window "$session" "$window"
+    if [[ -n "$explicit_pane" ]]; then
+      pane_id="$explicit_pane"
+    else
+      pane_id=$(get_editor_pane "$session" "$window")
+    fi
+    display_location="${session}:${window}"
   fi
 
   # Socket path in private directory
@@ -409,14 +442,14 @@ handle_file() {
       if [[ -n "$end_line" && "$end_line" =~ ^[0-9]+$ ]]; then
         # Line range: use visual line mode to highlight
         nvim --server "$socket_path" --remote-send ":${start_line}<CR>V${end_line}G" 2>/dev/null
-        echo "Opened $file_path highlighting lines $start_line-$end_line in ${session}:${window}"
+        echo "Opened $file_path highlighting lines $start_line-$end_line in $display_location"
       elif [[ -n "$start_line" && "$start_line" =~ ^[0-9]+$ ]]; then
         # Single line: jump to line
         nvim --server "$socket_path" --remote-send ":${start_line}<CR>" 2>/dev/null
-        echo "Opened $file_path at line $start_line in ${session}:${window}"
+        echo "Opened $file_path at line $start_line in $display_location"
       else
         # No line number
-        echo "Opened $file_path in ${session}:${window}"
+        echo "Opened $file_path in $display_location"
       fi
     else
       echo "Error: Neovim socket exists but not responding: $socket_path" >&2
@@ -433,33 +466,39 @@ handle_file() {
       if [[ -n "$end_line" && "$end_line" =~ ^[0-9]+$ ]]; then
         # Line range: use visual line mode to highlight
         nvim --server "$socket_path" --remote-send ":${start_line}<CR>V${end_line}G" 2>/dev/null
-        echo "Opened $file_path highlighting lines $start_line-$end_line in ${session}:${window}"
+        echo "Opened $file_path highlighting lines $start_line-$end_line in $display_location"
       elif [[ -n "$start_line" && "$start_line" =~ ^[0-9]+$ ]]; then
         # Single line: jump to line
         nvim --server "$socket_path" --remote-send ":${start_line}<CR>" 2>/dev/null
-        echo "Opened $file_path at line $start_line in ${session}:${window}"
+        echo "Opened $file_path at line $start_line in $display_location"
       else
         # No line number
-        echo "Opened $file_path in ${session}:${window}"
+        echo "Opened $file_path in $display_location"
       fi
     else
       # Socket didn't become available, but Neovim might still work
-      echo "Started Neovim with $file_path in ${session}:${window} (socket startup slow)"
+      echo "Started Neovim with $file_path in $display_location (socket startup slow)"
     fi
   fi
 
-  # Focus the pane if enabled
-  if [[ "$SHOW_FOCUS" == "true" ]]; then
-    focus_pane "$pane_id" "${session}:${window}"
-  fi
+  if [[ "$use_split" == true ]]; then
+    # Split mode: no zoom (side-by-side is the point), no cross-session focus switch
+    # Still write focus-hold for VoiceMode visual conch
+    mkdir -p ~/.voicemode 2>/dev/null
+    echo "${SHOW_HOLD_SECONDS:-30}" > ~/.voicemode/focus-hold
+  else
+    # Window mode: focus and zoom as before
+    if [[ "$SHOW_FOCUS" == "true" ]]; then
+      focus_pane "$pane_id" "${session}:${window}"
+    fi
 
-  # Zoom the pane if enabled
-  if [[ "$SHOW_ZOOM" == "true" ]]; then
-    # Only zoom if not already zoomed
-    local is_zoomed
-    is_zoomed=$(tmux display-message -t "$pane_id" -p '#{window_zoomed_flag}' 2>/dev/null)
-    if [[ "$is_zoomed" != "1" ]]; then
-      tmux resize-pane -t "$pane_id" -Z 2>/dev/null
+    if [[ "$SHOW_ZOOM" == "true" ]]; then
+      # Only zoom if not already zoomed
+      local is_zoomed
+      is_zoomed=$(tmux display-message -t "$pane_id" -p '#{window_zoomed_flag}' 2>/dev/null)
+      if [[ "$is_zoomed" != "1" ]]; then
+        tmux resize-pane -t "$pane_id" -Z 2>/dev/null
+      fi
     fi
   fi
 }
@@ -526,33 +565,64 @@ handle_command() {
   local session="$2"
   local window="$3"
   local explicit_pane="${4:-}"
+  local layout="${5:-}"
+
+  # Resolve 'here' sentinel to 'below' for commands
+  if [[ "$layout" == "here" ]]; then
+    layout="below"
+  fi
+
+  # Resolve 'stacked' to 'window' for now (SHOW-54 will implement stacked layout)
+  if [[ "$layout" == "stacked" ]]; then
+    layout="window"
+  fi
 
   # Remove cmd: or command: prefix
   command="${command#cmd:}"
   command="${command#command:}"
 
   local pane_id
-  if [[ -n "$explicit_pane" ]]; then
-    pane_id="$explicit_pane"
+  local use_split=false
+  local display_location
+
+  if is_split_layout "$layout"; then
+    # Split mode: create pane in current window
+    use_split=true
+    pane_id=$(create_split_pane "$layout")
+    display_location="split ($layout)"
   else
-    get_or_create_show_window "$session" "$window"
-    pane_id=$(get_shell_pane "$session" "$window")
+    # Window mode: use separate show window (existing behavior)
+    if [[ -n "$explicit_pane" ]]; then
+      pane_id="$explicit_pane"
+    else
+      get_or_create_show_window "$session" "$window"
+      pane_id=$(get_shell_pane "$session" "$window")
+    fi
+    display_location="${session}:${window}"
   fi
 
   # Send command to pane
   tmux send-keys -t "$pane_id" "$command" Enter
 
-  # Focus the pane if enabled
-  if [[ "$SHOW_FOCUS" == "true" ]]; then
-    focus_pane "$pane_id" "${session}:${window}"
+  if [[ "$use_split" == true ]]; then
+    # Split mode: no cross-session focus switch (already in current window)
+    # Still write focus-hold for VoiceMode visual conch
+    mkdir -p ~/.voicemode 2>/dev/null
+    echo "${SHOW_HOLD_SECONDS:-30}" > ~/.voicemode/focus-hold
+  else
+    # Window mode: focus as before
+    if [[ "$SHOW_FOCUS" == "true" ]]; then
+      focus_pane "$pane_id" "${session}:${window}"
+    fi
   fi
 
-  echo "Executed: $command in ${session}:${window}"
+  echo "Executed: $command in $display_location"
 }
 
 # Focus a tmux pane (supports cross-session switching)
 handle_pane() {
   local pane_spec="$1"
+  local layout="${2:-}"  # Layout mode (unused until SHOW-21)
 
   # Remove pane: prefix
   pane_spec="${pane_spec#pane:}"
@@ -595,6 +665,17 @@ handle_diff() {
   local session="$2"
   local window="$3"
   local explicit_pane="${4:-}"
+  local layout="${5:-}"
+
+  # Resolve 'here' sentinel to 'right' for diff (uses Neovim like files)
+  if [[ "$layout" == "here" ]]; then
+    layout="right"
+  fi
+
+  # Resolve 'stacked' to 'window' for now (SHOW-54 will implement stacked layout)
+  if [[ "$layout" == "stacked" ]]; then
+    layout="window"
+  fi
 
   # Strip diff: prefix if present
   local diff_args=""
@@ -611,14 +692,24 @@ handle_diff() {
     return 1
   }
 
-  # Ensure session and window exist
-  get_or_create_show_window "$session" "$window"
-
   local pane_id
-  if [[ -n "$explicit_pane" ]]; then
-    pane_id="$explicit_pane"
+  local use_split=false
+  local display_location
+
+  if is_split_layout "$layout"; then
+    # Split mode: create pane in current window
+    use_split=true
+    pane_id=$(create_split_pane "$layout")
+    display_location="split ($layout)"
   else
-    pane_id=$(get_editor_pane "$session" "$window")
+    # Window mode: use separate show window (existing behavior)
+    get_or_create_show_window "$session" "$window"
+    if [[ -n "$explicit_pane" ]]; then
+      pane_id="$explicit_pane"
+    else
+      pane_id=$(get_editor_pane "$session" "$window")
+    fi
+    display_location="${session}:${window}"
   fi
 
   # Socket path in private directory
@@ -646,7 +737,7 @@ handle_diff() {
     tmux send-keys -t "$pane_id" "$nvim_cmd" Enter
 
     if ! wait_for_nvim_socket "$socket_path"; then
-      echo "Started Neovim in ${session}:${window} (socket startup slow, DiffView may not have opened)" >&2
+      echo "Started Neovim in $display_location (socket startup slow, DiffView may not have opened)" >&2
     fi
   fi
 
@@ -657,21 +748,75 @@ handle_diff() {
   else
     description="$diff_args"
   fi
-  echo "Opened DiffView (${description}) in ${session}:${window}"
+  echo "Opened DiffView (${description}) in $display_location"
 
-  # Focus the pane if enabled
-  if [[ "$SHOW_FOCUS" == "true" ]]; then
-    focus_pane "$pane_id" "${session}:${window}"
-  fi
+  if [[ "$use_split" == true ]]; then
+    # Split mode: no zoom (side-by-side is the point), no cross-session focus switch
+    # Still write focus-hold for VoiceMode visual conch
+    mkdir -p ~/.voicemode 2>/dev/null
+    echo "${SHOW_HOLD_SECONDS:-30}" > ~/.voicemode/focus-hold
+  else
+    # Window mode: focus and zoom as before
+    if [[ "$SHOW_FOCUS" == "true" ]]; then
+      focus_pane "$pane_id" "${session}:${window}"
+    fi
 
-  # Zoom the pane if enabled
-  if [[ "$SHOW_ZOOM" == "true" ]]; then
-    local is_zoomed
-    is_zoomed=$(tmux display-message -t "$pane_id" -p '#{window_zoomed_flag}' 2>/dev/null)
-    if [[ "$is_zoomed" != "1" ]]; then
-      tmux resize-pane -t "$pane_id" -Z 2>/dev/null
+    if [[ "$SHOW_ZOOM" == "true" ]]; then
+      local is_zoomed
+      is_zoomed=$(tmux display-message -t "$pane_id" -p '#{window_zoomed_flag}' 2>/dev/null)
+      if [[ "$is_zoomed" != "1" ]]; then
+        tmux resize-pane -t "$pane_id" -Z 2>/dev/null
+      fi
     fi
   fi
+}
+
+# Validate layout value
+# Accepts: right, below, left, above, window, stacked, here, empty string
+# Returns: 0 if valid, 1 if invalid (with error message to stderr)
+validate_layout() {
+  local layout="$1"
+  case "$layout" in
+    right|below|left|above|window|stacked|here|"") return 0 ;;
+    *)
+      echo "Error: Invalid layout: $layout" >&2
+      echo "Valid values: right, below, left, above, window, stacked" >&2
+      return 1
+      ;;
+  esac
+}
+
+# Check if layout is a directional split (not window mode)
+# Returns: 0 if layout is right/below/left/above, 1 otherwise
+is_split_layout() {
+  local layout="$1"
+  case "$layout" in
+    right|below|left|above) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Create a tmux split pane in the specified direction
+# Args: direction (right, below, left, above)
+# Returns: new pane ID (e.g. %15) on stdout
+create_split_pane() {
+  local direction="$1"
+  local size="${SHOW_SPLIT_SIZE:-50}"
+  local flags=""
+
+  case "$direction" in
+    right) flags="-h -p $size" ;;
+    below) flags="-v -p $size" ;;
+    left)  flags="-hb -p $size" ;;
+    above) flags="-vb -p $size" ;;
+    *)
+      echo "Error: Invalid split direction: $direction" >&2
+      return 1
+      ;;
+  esac
+
+  # shellcheck disable=SC2086
+  tmux split-window $flags -P -F '#{pane_id}'
 }
 
 # Detect target type and dispatch to handler
@@ -680,6 +825,7 @@ detect_and_handle() {
   local session="$2"
   local window="$3"
   local pane="${4:-}"
+  local layout="${5:-}"
 
   # URL (http:// or https://)
   if [[ "$target" =~ ^https?:// ]]; then
@@ -689,25 +835,25 @@ detect_and_handle() {
 
   # Git diff (diff or diff:ref)
   if [[ "$target" == "diff" || "$target" =~ ^diff: ]]; then
-    handle_diff "$target" "$session" "$window" "$pane"
+    handle_diff "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
   # Command (cmd: or command: prefix)
   if [[ "$target" =~ ^(cmd|command): ]]; then
-    handle_command "$target" "$session" "$window" "$pane"
+    handle_command "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
   # Pane focus (pane: prefix)
   if [[ "$target" =~ ^pane: ]]; then
-    handle_pane "$target"
+    handle_pane "$target" "$layout"
     return
   fi
 
   # File URL (file://)
   if [[ "$target" =~ ^file:// ]]; then
-    handle_file "$target" "$session" "$window" "$pane"
+    handle_file "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
@@ -718,7 +864,7 @@ detect_and_handle() {
   fi
 
   # Default: treat as file
-  handle_file "$target" "$session" "$window" "$pane"
+  handle_file "$target" "$session" "$window" "$pane" "$layout"
 }
 
 main() {
@@ -778,6 +924,14 @@ EOF
         hold_seconds="$2"
         shift 2
         ;;
+      --layout)
+        SHOW_LAYOUT="$2"
+        shift 2
+        ;;
+      --here)
+        SHOW_LAYOUT="here"
+        shift
+        ;;
       -*)
         echo "Unknown option: $1" >&2
         exit 1
@@ -800,6 +954,9 @@ EOF
     exit 1
   fi
 
+  # Validate layout value
+  validate_layout "$SHOW_LAYOUT" || exit 1
+
   # Set hold duration: CLI --hold > env var > default 30
   if [[ -n "$hold_seconds" ]]; then
     SHOW_HOLD_SECONDS="$hold_seconds"
@@ -816,7 +973,7 @@ EOF
     window="$SHOW_WINDOW"
   fi
 
-  detect_and_handle "$target" "$session" "$window" "$pane"
+  detect_and_handle "$target" "$session" "$window" "$pane" "$SHOW_LAYOUT"
 }
 
 # Run if not sourced
