@@ -75,7 +75,7 @@ A single line rarely provides enough context. When pointing out a function, a bu
 ### show - Display Content
 
 ```bash
-show README.md                    # Open file
+show README.md                    # Open file (uses user's default layout)
 show src/main.py:42               # Open at line 42
 show src/main.py:10-20            # Open highlighting lines 10-20 (preferred)
 show bin/show#L124-162            # Highlight function (URL fragment syntax)
@@ -83,7 +83,11 @@ show https://github.com/repo      # Open URL
 show "cmd:git status"             # Run command
 show pane:15                      # Focus pane
 show --hold 60 README.md          # Hold focus for 60s (visual conch)
+show --layout right README.md     # Open in split pane to the right
+show --here "cmd:make test"       # Split pane (default direction for type)
 ```
+
+**Layout:** You don't need to specify `--layout` — just call `show <target>`. The user's `SHOW_LAYOUT` env var controls where content appears. In split mode, subsequent file shows reuse the existing Neovim pane.
 
 ### File Syntax Variants
 

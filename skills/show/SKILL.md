@@ -18,9 +18,15 @@ Display content for the user in the appropriate application.
 - `pane:self` — Focus the agent's own pane (use for "show yourself")
 
 **Options:**
+- `--layout VALUE` — Where to show content. Values: `right`, `below`, `left`, `above`, `window`, `stacked`
+- `--here` — Show in a split pane beside the conversation (shorthand for content-type default direction)
 - `--hold SECONDS` — Hold visual focus for N seconds (default: 30). Prevents VoiceMode auto-focus from switching away while the user reads.
+- `--no-zoom` — Don't zoom the pane after showing (useful in split mode)
+
+**Layout:** You don't need to specify `--layout` — the user's `SHOW_LAYOUT` env var controls the default. Just call `show <target>` and the right thing happens. Override with `--layout` only when you have a reason to.
 
 **Tip:** Prefer ranges (`file:start-end`) over single lines for code.
+**Tip:** In split mode, subsequent file shows reuse the existing Neovim pane instead of creating new splits.
 
 ## Implementation
 
