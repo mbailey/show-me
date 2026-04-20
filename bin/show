@@ -15,6 +15,7 @@ SHOW_BROWSER="${SHOW_BROWSER:-}"  # Empty means auto-detect
 SHOW_AUTO_ATTACH="${SHOW_AUTO_ATTACH:-true}"
 SHOW_FOCUS="${SHOW_FOCUS:-true}"
 SHOW_ZOOM="${SHOW_ZOOM:-true}"
+SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty = content-type default (right for files, below for commands)
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
