@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-04-20
+
 ### Fixed
 
 - **Split pane targeting** — splits now anchor to the agent's pane (`$TMUX_PANE`) instead of the user's active pane, so clicking around doesn't change where the next `show` splits
