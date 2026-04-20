@@ -284,6 +284,34 @@ focus_pane() {
   echo "${SHOW_HOLD_SECONDS:-30}" > ~/.voicemode/focus-hold
 }
 
+# Find an existing show-managed Neovim pane in the current window
+# Scans all panes in the current tmux window for nvim-show-pane-* sockets
+# Returns: pane ID (e.g. %15) on stdout if found, or returns 1 if none
+find_nvim_show_pane() {
+  local socket_dir
+  socket_dir=$(get_socket_dir)
+
+  # Get all pane IDs in the current window only
+  local pane_ids
+  pane_ids=$(tmux list-panes -F '#{pane_id}')
+
+  local pane_id
+  for pane_id in $pane_ids; do
+    local socket="${socket_dir}/nvim-show-pane-${pane_id#%}"
+    if [[ -S "$socket" ]]; then
+      # Socket file exists, verify Neovim is responsive
+      if nvim --server "$socket" --remote-expr "1" >/dev/null 2>&1; then
+        echo "$pane_id"
+        return 0
+      else
+        # Stale socket: Neovim crashed or exited, clean up
+        rm -f "$socket" 2>/dev/null
+      fi
+    fi
+  done
+  return 1
+}
+
 # Get or create the show tmux session and window
 get_or_create_show_window() {
   local session="$1"
@@ -410,13 +438,21 @@ handle_file() {
 
   local pane_id
   local use_split=false
+  local reused_pane=false
   local display_location
 
   if is_split_layout "$layout"; then
-    # Split mode: create pane in current window
+    # Split mode: check for existing Neovim pane before creating a new split
     use_split=true
-    pane_id=$(create_split_pane "$layout")
-    display_location="split ($layout)"
+    local existing_pane
+    if existing_pane=$(find_nvim_show_pane); then
+      pane_id="$existing_pane"
+      reused_pane=true
+      display_location="split (reused)"
+    else
+      pane_id=$(create_split_pane "$layout")
+      display_location="split ($layout)"
+    fi
   else
     # Window mode: use separate show window (existing behavior)
     get_or_create_show_window "$session" "$window"
@@ -694,13 +730,21 @@ handle_diff() {
 
   local pane_id
   local use_split=false
+  local reused_pane=false
   local display_location
 
   if is_split_layout "$layout"; then
-    # Split mode: create pane in current window
+    # Split mode: check for existing Neovim pane before creating a new split
     use_split=true
-    pane_id=$(create_split_pane "$layout")
-    display_location="split ($layout)"
+    local existing_pane
+    if existing_pane=$(find_nvim_show_pane); then
+      pane_id="$existing_pane"
+      reused_pane=true
+      display_location="split (reused)"
+    else
+      pane_id=$(create_split_pane "$layout")
+      display_location="split ($layout)"
+    fi
   else
     # Window mode: use separate show window (existing behavior)
     get_or_create_show_window "$session" "$window"

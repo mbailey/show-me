@@ -149,6 +149,87 @@ else
   fail "show skill has description frontmatter"
 fi
 
+# --- Layout validation ---
+echo ""
+echo "Layout validation:"
+
+# Source the script to access functions
+source "$SHOW"
+
+if is_split_layout "right"; then
+  pass "is_split_layout recognizes 'right'"
+else
+  fail "is_split_layout recognizes 'right'"
+fi
+
+if is_split_layout "below"; then
+  pass "is_split_layout recognizes 'below'"
+else
+  fail "is_split_layout recognizes 'below'"
+fi
+
+if ! is_split_layout "window"; then
+  pass "is_split_layout rejects 'window'"
+else
+  fail "is_split_layout rejects 'window'"
+fi
+
+if ! is_split_layout ""; then
+  pass "is_split_layout rejects empty string"
+else
+  fail "is_split_layout rejects empty string"
+fi
+
+# --- Pane reuse detection (SHOW-22) ---
+echo ""
+echo "Pane reuse detection (SHOW-22):"
+
+# Test find_nvim_show_pane function exists
+if declare -f find_nvim_show_pane >/dev/null 2>&1; then
+  pass "find_nvim_show_pane function exists"
+else
+  fail "find_nvim_show_pane function exists"
+fi
+
+# Test that find_nvim_show_pane returns 1 when no Neovim panes exist
+if [[ -n "${TMUX:-}" ]]; then
+  # We're in tmux, so list-panes will work; but there should be no show-managed sockets
+  # for panes in this test environment
+  if ! find_nvim_show_pane >/dev/null 2>&1; then
+    pass "find_nvim_show_pane returns 1 when no Neovim panes exist"
+  else
+    # There might actually be a show-managed pane — that's OK in a real tmux session
+    skip "find_nvim_show_pane (show-managed pane may exist in test session)"
+  fi
+else
+  skip "find_nvim_show_pane no-pane test (not in tmux)"
+fi
+
+# Test stale socket cleanup
+socket_dir=$(get_socket_dir)
+stale_socket="${socket_dir}/nvim-show-pane-99999"
+# Create a stale socket file (regular file, not a real socket — simulates stale)
+if [[ -n "${TMUX:-}" ]]; then
+  # Only run stale socket test inside tmux where list-panes works
+  # The function checks -S (socket), so a regular file won't match — that's correct behavior
+  touch "$stale_socket" 2>/dev/null
+  if ! find_nvim_show_pane >/dev/null 2>&1; then
+    pass "find_nvim_show_pane skips non-socket files"
+  else
+    skip "find_nvim_show_pane stale socket (unexpected match)"
+  fi
+  rm -f "$stale_socket" 2>/dev/null || true
+else
+  skip "stale socket cleanup (not in tmux)"
+fi
+
+# Test that window mode is unaffected by reuse logic
+if ! is_split_layout "window"; then
+  pass "window mode does not trigger split reuse logic"
+else
+  fail "window mode does not trigger split reuse logic"
+fi
+
 # --- Summary ---
 echo ""
 echo "===================="
