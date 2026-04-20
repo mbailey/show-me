@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-20
+
 ### Added
 
 - **Split pane layouts** — `show --layout right file.py` opens content in a split pane beside the conversation instead of switching to a separate window. Supports `right`, `below`, `left`, `above`, `window` (original behavior), and `stacked` (coming soon)
