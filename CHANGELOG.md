@@ -4,6 +4,14 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Split pane targeting** — splits now anchor to the agent's pane (`$TMUX_PANE`) instead of the user's active pane, so clicking around doesn't change where the next `show` splits
+
+### Changed
+
+- **Direction-aware split sizes** — side splits (right/left) default to 70% for content-heavy file viewing; top/bottom splits (above/below) default to 30% for compact command output. `SHOW_SPLIT_SIZE` env var overrides when set.
+
 ## [2.1.0] - 2026-04-20
 
 ### Added
