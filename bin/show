@@ -16,7 +16,7 @@ SHOW_AUTO_ATTACH="${SHOW_AUTO_ATTACH:-true}"
 SHOW_FOCUS="${SHOW_FOCUS:-true}"
 SHOW_ZOOM="${SHOW_ZOOM:-true}"
 SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty = content-type default (right for files, below for commands)
-SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-50}"  # Split pane percentage (default 50%)
+SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-70}"  # Split pane percentage (default 70% for content)
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
@@ -149,7 +149,7 @@ Environment:
   SHOW_ZOOM                Zoom pane after showing content (default: true)
   SHOW_LAYOUT              Layout mode (default: window)
                            Values: right, below, left, above, window, stacked
-  SHOW_SPLIT_SIZE          Split pane percentage (default: 50)
+  SHOW_SPLIT_SIZE          Split pane percentage (default: 70)
 
 EOF
 }
@@ -845,7 +845,7 @@ is_split_layout() {
 # Returns: new pane ID (e.g. %15) on stdout
 create_split_pane() {
   local direction="$1"
-  local size="${SHOW_SPLIT_SIZE:-50}"
+  local size="${SHOW_SPLIT_SIZE:-70}"
   local flags=""
 
   case "$direction" in
