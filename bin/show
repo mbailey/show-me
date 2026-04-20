@@ -859,8 +859,10 @@ create_split_pane() {
       ;;
   esac
 
+  # Split relative to the agent's pane (not the user's active pane)
+  local target_pane="${TMUX_PANE:-}"
   # shellcheck disable=SC2086
-  tmux split-window $flags -P -F '#{pane_id}'
+  tmux split-window ${target_pane:+-t "$target_pane"} $flags -P -F '#{pane_id}'
 }
 
 # Detect target type and dispatch to handler
