@@ -850,9 +850,9 @@ create_split_pane() {
 
   case "$direction" in
     right) flags="-h -p $size" ;;
-    below) flags="-v -p $size" ;;
+    below) flags="-fv -p $size" ;;
     left)  flags="-hb -p $size" ;;
-    above) flags="-vb -p $size" ;;
+    above) flags="-fvb -p $size" ;;
     *)
       echo "Error: Invalid split direction: $direction" >&2
       return 1
