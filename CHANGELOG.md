@@ -4,6 +4,20 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Split pane layouts** — `show --layout right file.py` opens content in a split pane beside the conversation instead of switching to a separate window. Supports `right`, `below`, `left`, `above`, `window` (original behavior), and `stacked` (coming soon)
+- **`--here` shorthand** — `show --here file.py` opens in a split pane using the content-type default direction (right for files, below for commands)
+- **`SHOW_LAYOUT` env var** — controls the default layout mode. LLMs just call `show <target>` and the user's preference is applied automatically
+- **`SHOW_SPLIT_SIZE` env var** — controls split pane percentage (default: 50%)
+- **Neovim pane reuse** — in split mode, subsequent file shows reuse the existing Neovim pane instead of creating new splits
+- **Stale socket cleanup** — crashed Neovim instances are detected and their sockets cleaned up automatically
+
+### Changed
+
+- `below` and `above` layouts use full-width splits (tmux `-f` flag), giving command output the full terminal width
+- Version bump to 1.4.0
+
 ## [2.0.5] - 2026-03-13
 
 ### Added
