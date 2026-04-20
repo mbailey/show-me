@@ -15,6 +15,7 @@ SHOW_BROWSER="${SHOW_BROWSER:-}"  # Empty means auto-detect
 SHOW_AUTO_ATTACH="${SHOW_AUTO_ATTACH:-true}"
 SHOW_FOCUS="${SHOW_FOCUS:-true}"
 SHOW_ZOOM="${SHOW_ZOOM:-true}"
+SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty = content-type default (right for files, below for commands)
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
@@ -93,6 +94,10 @@ Options:
   -s, --session NAME       Use specific tmux session
   -w, --window NAME        Use specific window name (default: show)
   -p, --pane ID            Target specific pane ID
+  --layout VALUE           Layout mode: right, below, left, above, window, stacked
+                           Overrides SHOW_LAYOUT env var
+  --here                   Show in a split pane (shorthand for content-type default
+                           direction: right for files, below for commands)
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
   --no-attach              Don't auto-attach terminal if no clients
@@ -129,7 +134,10 @@ Examples:
   show diff:main                    # DiffView against main branch
   show "diff:HEAD~3"                # DiffView of last 3 commits
   show "diff:main -- src/"          # DiffView against main, scoped to src/
-  show --hold 60 README.md          # Hold focus for 60s (long document)
+  show --layout right README.md      # Open in split pane to the right
+  show --layout below "cmd:make"     # Run command in pane below
+  show --here README.md              # Split pane (default direction for type)
+  show --hold 60 README.md           # Hold focus for 60s (long document)
 
 Environment:
   SHOW_SESSION             Target tmux session (default: current/auto-detect)
@@ -138,6 +146,8 @@ Environment:
   SHOW_AUTO_ATTACH         Auto-attach terminal if no clients (default: true)
   SHOW_FOCUS               Switch focus to show window (default: true)
   SHOW_ZOOM                Zoom pane after showing content (default: true)
+  SHOW_LAYOUT              Layout mode (default: window)
+                           Values: right, below, left, above, window, stacked
 
 EOF
 }
@@ -362,6 +372,7 @@ handle_file() {
   local session="$2"
   local window="$3"
   local explicit_pane="${4:-}"
+  local layout="${5:-}"  # Layout mode (unused until SHOW-21)
 
   # Parse file and line number/range
   local parsed
@@ -526,6 +537,7 @@ handle_command() {
   local session="$2"
   local window="$3"
   local explicit_pane="${4:-}"
+  local layout="${5:-}"  # Layout mode (unused until SHOW-21)
 
   # Remove cmd: or command: prefix
   command="${command#cmd:}"
@@ -553,6 +565,7 @@ handle_command() {
 # Focus a tmux pane (supports cross-session switching)
 handle_pane() {
   local pane_spec="$1"
+  local layout="${2:-}"  # Layout mode (unused until SHOW-21)
 
   # Remove pane: prefix
   pane_spec="${pane_spec#pane:}"
@@ -595,6 +608,7 @@ handle_diff() {
   local session="$2"
   local window="$3"
   local explicit_pane="${4:-}"
+  local layout="${5:-}"  # Layout mode (unused until SHOW-21)
 
   # Strip diff: prefix if present
   local diff_args=""
@@ -674,12 +688,28 @@ handle_diff() {
   fi
 }
 
+# Validate layout value
+# Accepts: right, below, left, above, window, stacked, here, empty string
+# Returns: 0 if valid, 1 if invalid (with error message to stderr)
+validate_layout() {
+  local layout="$1"
+  case "$layout" in
+    right|below|left|above|window|stacked|here|"") return 0 ;;
+    *)
+      echo "Error: Invalid layout: $layout" >&2
+      echo "Valid values: right, below, left, above, window, stacked" >&2
+      return 1
+      ;;
+  esac
+}
+
 # Detect target type and dispatch to handler
 detect_and_handle() {
   local target="$1"
   local session="$2"
   local window="$3"
   local pane="${4:-}"
+  local layout="${5:-}"
 
   # URL (http:// or https://)
   if [[ "$target" =~ ^https?:// ]]; then
@@ -689,25 +719,25 @@ detect_and_handle() {
 
   # Git diff (diff or diff:ref)
   if [[ "$target" == "diff" || "$target" =~ ^diff: ]]; then
-    handle_diff "$target" "$session" "$window" "$pane"
+    handle_diff "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
   # Command (cmd: or command: prefix)
   if [[ "$target" =~ ^(cmd|command): ]]; then
-    handle_command "$target" "$session" "$window" "$pane"
+    handle_command "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
   # Pane focus (pane: prefix)
   if [[ "$target" =~ ^pane: ]]; then
-    handle_pane "$target"
+    handle_pane "$target" "$layout"
     return
   fi
 
   # File URL (file://)
   if [[ "$target" =~ ^file:// ]]; then
-    handle_file "$target" "$session" "$window" "$pane"
+    handle_file "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
@@ -718,7 +748,7 @@ detect_and_handle() {
   fi
 
   # Default: treat as file
-  handle_file "$target" "$session" "$window" "$pane"
+  handle_file "$target" "$session" "$window" "$pane" "$layout"
 }
 
 main() {
@@ -778,6 +808,14 @@ EOF
         hold_seconds="$2"
         shift 2
         ;;
+      --layout)
+        SHOW_LAYOUT="$2"
+        shift 2
+        ;;
+      --here)
+        SHOW_LAYOUT="here"
+        shift
+        ;;
       -*)
         echo "Unknown option: $1" >&2
         exit 1
@@ -800,6 +838,9 @@ EOF
     exit 1
   fi
 
+  # Validate layout value
+  validate_layout "$SHOW_LAYOUT" || exit 1
+
   # Set hold duration: CLI --hold > env var > default 30
   if [[ -n "$hold_seconds" ]]; then
     SHOW_HOLD_SECONDS="$hold_seconds"
@@ -816,7 +857,7 @@ EOF
     window="$SHOW_WINDOW"
   fi
 
-  detect_and_handle "$target" "$session" "$window" "$pane"
+  detect_and_handle "$target" "$session" "$window" "$pane" "$SHOW_LAYOUT"
 }
 
 # Run if not sourced
