@@ -95,8 +95,8 @@ which look
 type look
 
 # Use full path if needed
-~/.metool/bin/look
-${CLAUDE_PLUGIN_ROOT}/bin/look
+~/.metool/bin/look                 # If installed via metool
+${CLAUDE_PLUGIN_ROOT}/bin/look     # From inside Claude Code's Bash tool, when installed as a plugin
 ```
 
 ## Requirements Check
