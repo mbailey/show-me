@@ -30,6 +30,8 @@ Display content for the user in the appropriate application.
 
 ## Implementation
 
+`show` is already on PATH — for Bash tool calls, just run `show <target>` directly. No need for an absolute path (versioned plugin paths go stale on upgrade).
+
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/bin/show $ARGUMENTS
 ```
