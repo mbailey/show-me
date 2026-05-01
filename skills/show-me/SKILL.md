@@ -70,7 +70,7 @@ A single line rarely provides enough context. When pointing out a function, a bu
 
 ## Usage
 
-**AI assistants:** Use full path `${CLAUDE_PLUGIN_ROOT}/bin/show` and `${CLAUDE_PLUGIN_ROOT}/bin/look`.
+**AI assistants:** Use bare `show` and `look` -- they're on PATH.
 
 ### show - Display Content
 

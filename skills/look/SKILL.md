@@ -1,7 +1,6 @@
 ---
 name: look
 description: Observe what the user is currently viewing (screen context)
-argument-hint: "[options] [target]"
 ---
 
 # /show-me:look
@@ -23,6 +22,8 @@ Capture what the user is currently viewing with tmux hierarchy and pane content.
 
 ## Implementation
 
+Run via the Bash tool. `look` is on PATH (Claude Code adds plugin `bin/` to PATH automatically; for other Agent Skill runtimes, the user must put `bin/look` on PATH themselves, e.g. via a symlink into `~/.local/bin`).
+
 ```bash
-${CLAUDE_PLUGIN_ROOT}/bin/look $ARGUMENTS
+look [options] [target]
 ```

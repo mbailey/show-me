@@ -1,7 +1,6 @@
 ---
 name: show
 description: Displays files, URLs, command output or your tmux pane for the user to see. Use whenever USER makes a request like "show me" or "show yourself"
-argument-hint: <target>
 ---
 
 # /show-me:show
@@ -30,8 +29,8 @@ Display content for the user in the appropriate application.
 
 ## Implementation
 
-`show` must be on PATH. Claude Code adds plugin `bin/` directories automatically; for other Agent Skill runtimes, the user must put `bin/show` on PATH themselves (symlink into `~/.local/bin`, etc.).
+Run via the Bash tool. `show` is on PATH (Claude Code adds plugin `bin/` to PATH automatically; for other Agent Skill runtimes, the user must put `bin/show` on PATH themselves, e.g. via a symlink into `~/.local/bin`).
 
 ```bash
-show $ARGUMENTS
+show <target> [options]
 ```
