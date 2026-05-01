@@ -30,7 +30,7 @@ Display content for the user in the appropriate application.
 
 ## Implementation
 
-`show` is already on PATH — for Bash tool calls, just run `show <target>` directly. No need for an absolute path (versioned plugin paths go stale on upgrade).
+In Claude Code with this skill installed as a plugin, `show` is on PATH (Claude Code adds plugin `bin/` directories automatically). For Bash tool calls, just run `show <target>` — no absolute path needed. If `show` is not found (e.g. running as a non-plugin Agent Skill), fall back to `${CLAUDE_PLUGIN_ROOT}/bin/show` or the absolute path from `which show`.
 
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/bin/show $ARGUMENTS
