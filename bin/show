@@ -410,11 +410,6 @@ handle_file() {
     layout="right"
   fi
 
-  # Resolve 'stacked' to 'window' for now (SHOW-54 will implement stacked layout)
-  if [[ "$layout" == "stacked" ]]; then
-    layout="window"
-  fi
-
   # Parse file and line number/range
   local parsed
   parsed=$(parse_file_target "$target")
@@ -444,9 +439,10 @@ handle_file() {
 
   if is_split_layout "$layout"; then
     # Split mode: check for existing Neovim pane before creating a new split
+    # Stacked always creates a new pane — never reuse an existing Neovim instance
     use_split=true
     local existing_pane
-    if existing_pane=$(find_nvim_show_pane); then
+    if [[ "$layout" != "stacked" ]] && existing_pane=$(find_nvim_show_pane); then
       pane_id="$existing_pane"
       reused_pane=true
       display_location="split (reused)"
@@ -609,11 +605,6 @@ handle_command() {
     layout="below"
   fi
 
-  # Resolve 'stacked' to 'window' for now (SHOW-54 will implement stacked layout)
-  if [[ "$layout" == "stacked" ]]; then
-    layout="window"
-  fi
-
   # Remove cmd: or command: prefix
   command="${command#cmd:}"
   command="${command#command:}"
@@ -709,11 +700,6 @@ handle_diff() {
     layout="right"
   fi
 
-  # Resolve 'stacked' to 'window' for now (SHOW-54 will implement stacked layout)
-  if [[ "$layout" == "stacked" ]]; then
-    layout="window"
-  fi
-
   # Strip diff: prefix if present
   local diff_args=""
   if [[ "$target" == "diff" ]]; then
@@ -736,9 +722,10 @@ handle_diff() {
 
   if is_split_layout "$layout"; then
     # Split mode: check for existing Neovim pane before creating a new split
+    # Stacked always creates a new pane — never reuse an existing Neovim instance
     use_split=true
     local existing_pane
-    if existing_pane=$(find_nvim_show_pane); then
+    if [[ "$layout" != "stacked" ]] && existing_pane=$(find_nvim_show_pane); then
       pane_id="$existing_pane"
       reused_pane=true
       display_location="split (reused)"
@@ -832,20 +819,90 @@ validate_layout() {
 }
 
 # Check if layout is a directional split (not window mode)
-# Returns: 0 if layout is right/below/left/above, 1 otherwise
+# Returns: 0 if layout is right/below/left/above/stacked, 1 otherwise
 is_split_layout() {
   local layout="$1"
   case "$layout" in
-    right|below|left|above) return 0 ;;
+    right|below|left|above|stacked) return 0 ;;
     *) return 1 ;;
   esac
 }
 
+# Create a stacked pane following the tmux teammate-layout algorithm
+# Each call adds a new pane to the right-hand stack; leader stays on the left.
+# First call: split leader horizontally (leader 30%, content 70%).
+# Subsequent calls: split the middle content pane (alternating v/h), then rebalance.
+# Must be run inside tmux; exits non-zero with a clear error otherwise.
+# Returns: new pane ID (e.g. %15) on stdout
+create_stacked_pane() {
+  if [[ -z "${TMUX:-}" ]]; then
+    echo "Error: --layout stacked requires running inside tmux" >&2
+    return 1
+  fi
+
+  local leader_pane="${TMUX_PANE:-}"
+  if [[ -z "$leader_pane" ]]; then
+    echo "Error: TMUX_PANE not set; cannot identify leader pane for stacked layout" >&2
+    return 1
+  fi
+
+  # Current window ID
+  local window_id
+  window_id=$(tmux display-message -p '#{window_id}')
+
+  # Content panes: all panes in the current window except the leader
+  local teammates
+  teammates=$(tmux list-panes -t "$window_id" -F '#{pane_id}' | grep -v "^${leader_pane}$" || true)
+  local teammate_count=0
+  [[ -n "$teammates" ]] && teammate_count=$(echo "$teammates" | wc -l | tr -d ' ')
+
+  local new_pane
+
+  if [[ "$teammate_count" -eq 0 ]]; then
+    # First content pane: split leader horizontally, content pane gets 70%
+    new_pane=$(tmux split-window -t "$leader_pane" -h -l 70% -P -F '#{pane_id}') || {
+      echo "Warning: Failed to create stacked pane (window may be too small)" >&2
+      return 1
+    }
+  else
+    # Subsequent panes: split the middle content pane, alternating vertical/horizontal
+    local mid=$(( (teammate_count - 1) / 2 ))
+    local target
+    target=$(echo "$teammates" | sed -n "$((mid + 1))p")
+
+    local split_dir
+    if (( teammate_count % 2 == 1 )); then
+      split_dir="-v"
+    else
+      split_dir="-h"
+    fi
+
+    # shellcheck disable=SC2086
+    new_pane=$(tmux split-window -t "$target" $split_dir -P -F '#{pane_id}') || {
+      echo "Warning: Failed to create stacked pane (window may be too small)" >&2
+      return 1
+    }
+
+    # Rebalance: restore main-vertical layout, then pin leader to 30% width
+    tmux select-layout -t "$window_id" main-vertical 2>/dev/null || true
+    tmux resize-pane -t "$leader_pane" -x 30% 2>/dev/null || true
+  fi
+
+  echo "$new_pane"
+}
+
 # Create a tmux split pane in the specified direction
-# Args: direction (right, below, left, above)
+# Args: direction (right, below, left, above, stacked)
 # Returns: new pane ID (e.g. %15) on stdout
 create_split_pane() {
   local direction="$1"
+
+  # Stacked layout uses its own algorithm
+  if [[ "$direction" == "stacked" ]]; then
+    create_stacked_pane
+    return
+  fi
+
   local flags=""
 
   # Direction-aware default sizes: 70% for side splits (files), 30% for top/bottom (commands)
