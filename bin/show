@@ -447,7 +447,9 @@ handle_file() {
       reused_pane=true
       display_location="split (reused)"
     else
-      pane_id=$(create_split_pane "$layout")
+      if ! pane_id=$(create_split_pane "$layout"); then
+        exit 1
+      fi
       display_location="split ($layout)"
     fi
   else
@@ -616,7 +618,9 @@ handle_command() {
   if is_split_layout "$layout"; then
     # Split mode: create pane in current window
     use_split=true
-    pane_id=$(create_split_pane "$layout")
+    if ! pane_id=$(create_split_pane "$layout"); then
+      exit 1
+    fi
     display_location="split ($layout)"
   else
     # Window mode: use separate show window (existing behavior)
@@ -730,7 +734,9 @@ handle_diff() {
       reused_pane=true
       display_location="split (reused)"
     else
-      pane_id=$(create_split_pane "$layout")
+      if ! pane_id=$(create_split_pane "$layout"); then
+        exit 1
+      fi
       display_location="split ($layout)"
     fi
   else
@@ -846,9 +852,12 @@ create_stacked_pane() {
     return 1
   fi
 
-  # Current window ID
+  # Resolve the leader's window via the leader pane id, not the active client.
+  # `display-message -p '#{window_id}'` (no -t) returns the focused client's
+  # window, which can drift if the user has clicked into a different window
+  # between show calls. Anchor to the leader pane to keep splits stable.
   local window_id
-  window_id=$(tmux display-message -p '#{window_id}')
+  window_id=$(tmux display-message -p -t "$leader_pane" '#{window_id}')
 
   # Content panes: all panes in the current window except the leader
   local teammates
