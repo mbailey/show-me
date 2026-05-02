@@ -4,6 +4,10 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Stacked layout** (`--layout stacked` / `SHOW_LAYOUT=stacked`) — each `show` call adds a new pane to a cascading right-hand stack instead of replacing the previous one. Uses the tmux teammate-layout algorithm: first pane splits the leader horizontally (leader keeps 30%, content gets 70%); subsequent panes split the middle teammate, alternating vertical/horizontal, then rebalance via `select-layout main-vertical`. Closes the gap noted in v2.1.0 where stacked was "coming soon".
+
 ## [2.2.0] - 2026-04-20
 
 ### Fixed
