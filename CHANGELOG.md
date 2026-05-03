@@ -7,6 +7,7 @@ All notable changes to show-me will be documented in this file.
 ### Fixed
 
 - VERSION constant in bin/show now matches plugin.json (was stuck at 1.4.0 since v2.0.0). Added drift-check to make test.
+- `make release` now bumps `bin/show` VERSION and `.claude-plugin/plugin.json` `.version` atomically in a single commit (prevents drift at the source). See `RELEASING.md`.
 
 ## [2.3.0] - 2026-05-03
 
