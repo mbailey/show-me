@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-05-03
+
 ### Changed
 
 - `bin/release` is now interactive when called with no args: shows current version, suggests next-patch as default, accepts `m`/`M` for minor/major or an explicit `X.Y.Z`. Matches `claude-plugin-release` convention.
