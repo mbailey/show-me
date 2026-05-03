@@ -228,27 +228,21 @@ Consider reviewing before sharing. Use -H to show hierarchy only without content
 
 ### Finding the Commands
 
-The `show` and `look` commands may be installed in different locations:
+In normal use, `show` and `look` are on PATH and you call them as bare commands:
 
-**If installed as a Claude Code plugin:**
-```bash
-${CLAUDE_PLUGIN_ROOT}/bin/show <target>
-${CLAUDE_PLUGIN_ROOT}/bin/look [options]
-```
-
-**If installed via metool:**
 ```bash
 show <target>
 look [options]
-# Or explicitly: ~/.metool/bin/show, ~/.metool/bin/look
 ```
 
-**Note:** The system has a `look` command (dictionary lookup) that may shadow this package's `look`. Use the full path if needed.
+This works whether installed as a Claude Code plugin (which auto-adds `bin/` to the Bash tool's PATH) or via metool (which symlinks into `~/.metool/bin/`).
+
+**Note:** The system has a `look` command (dictionary lookup) that may shadow this package's `look`. If `which look` resolves to `/usr/bin/look`, use the full path or reorder PATH.
 
 ### Checking Installation
 
 ```bash
 which show look                                    # Check if in PATH
 ls ~/.metool/bin/show ~/.metool/bin/look          # Check metool
-ls ${CLAUDE_PLUGIN_ROOT}/bin/show                 # Check plugin
+ls ${CLAUDE_PLUGIN_ROOT}/bin/show                 # Check plugin (from inside Claude Code Bash tool)
 ```
