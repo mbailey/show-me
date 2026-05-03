@@ -6,11 +6,13 @@
 # fixed in SHOW-64 from reoccurring.
 #
 # Usage:
+#   bin/release                # interactive: shows current, suggests next-patch as default
 #   bin/release patch          # X.Y.Z -> X.Y.(Z+1)
 #   bin/release minor          # X.Y.Z -> X.(Y+1).0
 #   bin/release major          # X.Y.Z -> (X+1).0.0
 #   bin/release 2.4.0          # set explicit version
 #   bin/release --dry-run 2.4.0  # update files, skip git ops (for testing)
+#   bin/release --allow-empty patch  # release even if [Unreleased] is empty
 #
 # Contract: do NOT edit VERSION in bin/show or .version in plugin.json by hand.
 # This script is the single source of truth for bumping both.
@@ -18,17 +20,24 @@
 set -o nounset -o pipefail -o errexit
 
 DRY_RUN=0
-if [[ "${1:-}" == "--dry-run" ]]; then
-  DRY_RUN=1
-  shift
-fi
+ALLOW_EMPTY=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)     DRY_RUN=1; shift ;;
+    --allow-empty) ALLOW_EMPTY=1; shift ;;
+    -h|--help)
+      sed -n '1,17p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    -*)
+      echo "Unknown flag: $1" >&2
+      exit 2
+      ;;
+    *) break ;;
+  esac
+done
 
-if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 [--dry-run] <patch|minor|major|X.Y.Z>" >&2
-  exit 2
-fi
-
-ARG="$1"
+ARG="${1:-}"
 
 # Resolve repo root (parent of bin/)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -63,6 +72,72 @@ bump() {
     *) echo "$kind" ;;  # explicit version
   esac
 }
+
+# --- Layer 1: git check -- any commits since last release tag? ---
+LAST_TAG=$(git -C "$REPO_ROOT" describe --tags --abbrev=0 --match='v*.*.*' 2>/dev/null || true)
+COMMITS_SINCE=0
+if [[ -n "$LAST_TAG" ]]; then
+  COMMITS_SINCE=$(git -C "$REPO_ROOT" rev-list --count "${LAST_TAG}..HEAD" 2>/dev/null || echo 0)
+  if [[ "$COMMITS_SINCE" -eq 0 && $ALLOW_EMPTY -eq 0 ]]; then
+    echo "Error: no commits since $LAST_TAG -- nothing to release." >&2
+    echo "       (Use --allow-empty to override.)" >&2
+    exit 1
+  fi
+fi
+
+# --- Layer 2: CHANGELOG check -- does [Unreleased] have entries? ---
+UNRELEASED_BODY=""
+if [[ -f "$CHANGELOG" ]] && grep -q "^## \[Unreleased\]" "$CHANGELOG"; then
+  UNRELEASED_BODY=$(awk '
+    /^## \[Unreleased\]/ { in_section = 1; next }
+    in_section && /^## \[/ { exit }
+    in_section { print }
+  ' "$CHANGELOG" | grep -E '^[^[:space:]]' | grep -v '^<!--' || true)
+fi
+
+if [[ -z "$UNRELEASED_BODY" && $ALLOW_EMPTY -eq 0 ]]; then
+  if [[ "$COMMITS_SINCE" -gt 0 && -n "$LAST_TAG" ]]; then
+    # Commits exist but no CHANGELOG entries -- show titles + prompt
+    echo ""
+    echo "Warning: $COMMITS_SINCE commit(s) since $LAST_TAG, but [Unreleased] in CHANGELOG.md is empty."
+    echo ""
+    echo "Commits since $LAST_TAG:"
+    git -C "$REPO_ROOT" log --oneline "${LAST_TAG}..HEAD" | sed 's/^/  /'
+    echo ""
+    printf "Release anyway without CHANGELOG entries? [y/N]: "
+    read -r ans
+    [[ "$ans" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
+  else
+    echo "Error: [Unreleased] section in CHANGELOG.md is empty." >&2
+    echo "       Add entries describing what's shipping, OR pass --allow-empty if intentional." >&2
+    exit 1
+  fi
+fi
+
+# Interactive mode if no version arg given. Mirrors claude-plugin-release convention.
+if [[ -z "$ARG" ]]; then
+  next_patch="$(bump "$CURRENT" patch)"
+  next_minor="$(bump "$CURRENT" minor)"
+  next_major="$(bump "$CURRENT" major)"
+
+  echo ""
+  echo "Current version: $CURRENT"
+  echo ""
+  echo "Suggested versions:"
+  echo "  [enter] patch: $next_patch  (bug fixes, small changes)"
+  echo "  [m]     minor: $next_minor  (new features)"
+  echo "  [M]     major: $next_major  (breaking changes)"
+  echo ""
+  printf "New version [%s]: " "$next_patch"
+  read -r choice
+
+  case "$choice" in
+    "")  ARG="patch" ;;
+    m|minor) ARG="minor" ;;
+    M|major) ARG="major" ;;
+    *)   ARG="$choice" ;;  # explicit version string
+  esac
+fi
 
 NEW="$(bump "$CURRENT" "$ARG")"
 

@@ -4,6 +4,12 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- `bin/release` is now interactive when called with no args: shows current version, suggests next-patch as default, accepts `m`/`M` for minor/major or an explicit `X.Y.Z`. Matches `claude-plugin-release` convention.
+- `bin/release` refuses to release when there are no commits since the last release tag (Layer 1: git check). Prevents accidental empty release commits.
+- `bin/release` refuses to release when `[Unreleased]` is empty AND no commits exist since the last tag. When commits DO exist but `[Unreleased]` is empty, it lists the commit titles and prompts for confirmation. Override with `--allow-empty` if intentional.
+
 ### Fixed
 
 - VERSION constant in bin/show now matches plugin.json (was stuck at 1.4.0 since v2.0.0). Added drift-check to make test.
