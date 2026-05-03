@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# release - Atomic version bump + release for show-me
+#
+# Bumps version in BOTH bin/show (VERSION="X.Y.Z") and .claude-plugin/plugin.json
+# (.version) in a single commit, then tags and pushes. Prevents the drift bug
+# fixed in SHOW-64 from reoccurring.
+#
+# Usage:
+#   bin/release patch          # X.Y.Z -> X.Y.(Z+1)
+#   bin/release minor          # X.Y.Z -> X.(Y+1).0
+#   bin/release major          # X.Y.Z -> (X+1).0.0
+#   bin/release 2.4.0          # set explicit version
+#   bin/release --dry-run 2.4.0  # update files, skip git ops (for testing)
+#
+# Contract: do NOT edit VERSION in bin/show or .version in plugin.json by hand.
+# This script is the single source of truth for bumping both.
+
+set -o nounset -o pipefail -o errexit
+
+DRY_RUN=0
+if [[ "${1:-}" == "--dry-run" ]]; then
+  DRY_RUN=1
+  shift
+fi
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 [--dry-run] <patch|minor|major|X.Y.Z>" >&2
+  exit 2
+fi
+
+ARG="$1"
+
+# Resolve repo root (parent of bin/)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
+SHOW_BIN="$REPO_ROOT/bin/show"
+CHANGELOG="$REPO_ROOT/CHANGELOG.md"
+
+for f in "$PLUGIN_JSON" "$SHOW_BIN"; do
+  [[ -f "$f" ]] || { echo "Error: missing $f" >&2; exit 1; }
+done
+
+command -v jq >/dev/null 2>&1 || { echo "Error: jq required" >&2; exit 1; }
+
+# Refuse to operate on a dirty working tree (skip in dry-run for testability)
+if [[ $DRY_RUN -eq 0 ]]; then
+  if ! git -C "$REPO_ROOT" diff --quiet || ! git -C "$REPO_ROOT" diff --cached --quiet; then
+    echo "Error: uncommitted changes. Commit or stash first." >&2
+    git -C "$REPO_ROOT" status --short >&2
+    exit 1
+  fi
+fi
+
+CURRENT="$(jq -r .version "$PLUGIN_JSON")"
+
+bump() {
+  local cur="$1" kind="$2"
+  IFS=. read -r maj min pat <<< "$cur"
+  case "$kind" in
+    patch) echo "$maj.$min.$((pat + 1))" ;;
+    minor) echo "$maj.$((min + 1)).0" ;;
+    major) echo "$((maj + 1)).0.0" ;;
+    *) echo "$kind" ;;  # explicit version
+  esac
+}
+
+NEW="$(bump "$CURRENT" "$ARG")"
+
+# Validate semver shape
+if ! [[ "$NEW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: '$NEW' is not a valid X.Y.Z version" >&2
+  exit 1
+fi
+
+echo "Bumping $CURRENT -> $NEW"
+
+# 1. plugin.json -- jq to temp file, then mv (atomic on same fs)
+tmp="$(mktemp)"
+jq --arg v "$NEW" '.version = $v' "$PLUGIN_JSON" > "$tmp"
+mv "$tmp" "$PLUGIN_JSON"
+echo "  updated $PLUGIN_JSON"
+
+# 2. bin/show -- portable sed (BSD on macOS, GNU on linux, also handles
+# homebrew gnu-sed shadowing /usr/bin/sed on macOS). Write to temp file then
+# mv -- avoids the -i '' vs -i incantation entirely.
+tmp_show="$(mktemp)"
+sed -E "s/^VERSION=\"[^\"]*\"/VERSION=\"$NEW\"/" "$SHOW_BIN" > "$tmp_show"
+# Sanity: the substitution must have actually fired
+if ! grep -q "^VERSION=\"$NEW\"" "$tmp_show"; then
+  rm -f "$tmp_show"
+  echo "Error: failed to update VERSION line in $SHOW_BIN" >&2
+  exit 1
+fi
+# Preserve executable bit
+chmod --reference="$SHOW_BIN" "$tmp_show" 2>/dev/null || chmod +x "$tmp_show"
+mv "$tmp_show" "$SHOW_BIN"
+echo "  updated $SHOW_BIN"
+
+# 3. CHANGELOG.md -- promote [Unreleased] to new version section (if present)
+CHANGELOG_UPDATED=0
+if [[ -f "$CHANGELOG" ]] && grep -q "^## \[Unreleased\]" "$CHANGELOG"; then
+  date_str="$(date +%Y-%m-%d)"
+  tmp_cl="$(mktemp)"
+  awk -v ver="$NEW" -v d="$date_str" '
+    /^## \[Unreleased\]/ && !done {
+      print "## [Unreleased]"
+      print ""
+      print "## [" ver "] - " d
+      done = 1
+      next
+    }
+    { print }
+  ' "$CHANGELOG" > "$tmp_cl"
+  mv "$tmp_cl" "$CHANGELOG"
+  echo "  updated $CHANGELOG"
+  CHANGELOG_UPDATED=1
+fi
+
+# Run tests so the drift check (and rest of suite) gates the release
+echo ""
+echo "Running tests..."
+( cd "$REPO_ROOT" && bash tests/test_show.sh )
+
+if [[ $DRY_RUN -eq 1 ]]; then
+  echo ""
+  echo "[dry-run] Skipping git commit/tag/push. File changes left in working tree."
+  exit 0
+fi
+
+# Git ops -- atomic commit with both files (and CHANGELOG if updated)
+git -C "$REPO_ROOT" add "$PLUGIN_JSON" "$SHOW_BIN"
+[[ $CHANGELOG_UPDATED -eq 1 ]] && git -C "$REPO_ROOT" add "$CHANGELOG"
+git -C "$REPO_ROOT" commit -m "Release v$NEW"
+git -C "$REPO_ROOT" tag -a "v$NEW" -m "Release v$NEW"
+
+echo ""
+echo "Pushing..."
+git -C "$REPO_ROOT" push
+git -C "$REPO_ROOT" push --tags
+
+echo ""
+echo "Released v$NEW"
