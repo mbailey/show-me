@@ -230,6 +230,23 @@ else
   fail "window mode does not trigger split reuse logic"
 fi
 
+# --- Version drift check (SHOW-64) ---
+echo ""
+echo "Version drift check (SHOW-64):"
+
+manifest_file="${SCRIPT_DIR}/../.claude-plugin/plugin.json"
+if [[ -f "$manifest_file" ]] && command -v jq >/dev/null 2>&1; then
+  bin_version=$("$SHOW" --version 2>/dev/null | awk '{print $NF}')
+  manifest_version=$(jq -r .version "$manifest_file")
+  if [[ "$bin_version" == "$manifest_version" ]]; then
+    pass "bin/show VERSION matches plugin.json (${bin_version})"
+  else
+    fail "VERSION drift: bin/show=${bin_version}, plugin.json=${manifest_version}"
+  fi
+else
+  skip "version drift check (jq or plugin.json missing)"
+fi
+
 # --- Summary ---
 echo ""
 echo "===================="

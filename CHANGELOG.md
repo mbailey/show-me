@@ -4,6 +4,10 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- VERSION constant in bin/show now matches plugin.json (was stuck at 1.4.0 since v2.0.0). Added drift-check to make test.
+
 ## [2.3.1] - 2026-05-03
 
 ## [2.3.0] - 2026-05-03
