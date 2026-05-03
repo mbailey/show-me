@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-05-03
+
 ## [2.3.0] - 2026-05-03
 
 ### Added
