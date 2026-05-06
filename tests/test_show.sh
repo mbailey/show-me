@@ -53,32 +53,66 @@ fi
 echo ""
 echo "URL detection:"
 
-# These should be detected as URLs (test with --help to avoid actually opening)
-for url in "https://example.com" "http://example.com" "github.com" "docs.python.org"; do
-  # We can't actually open URLs in tests, so just verify the script exists and is executable
-  true
-done
 if [[ -x "$SHOW" ]]; then
   pass "show command is executable"
 else
   fail "show command is executable"
 fi
 
-# Test file target parsing
+# --- Target classification (URL vs file) ---
+# Source the script (main is guarded) and stub the handlers so we can probe
+# detect_and_handle without actually opening anything.
 echo ""
-echo "File target parsing:"
+echo "Target classification:"
 
-# Create a temp file
-tmpfile=$(mktemp /tmp/show-test-XXXXXX.txt)
-echo "test content" > "$tmpfile"
+# Run classification probes in a subshell so stubs don't leak.
+classify_target() {
+  (
+    # shellcheck disable=SC1090
+    source "$SHOW" >/dev/null 2>&1 || true
+    handle_url()  { echo "URL"; }
+    handle_file() { echo "FILE"; }
+    handle_diff() { echo "DIFF"; }
+    handle_command() { echo "CMD"; }
+    handle_pane()  { echo "PANE"; }
+    detect_and_handle "$1" "" "" "" ""
+  )
+}
 
-# Test that show recognizes file targets (we can't test actual display without tmux session)
-if [[ -f "$tmpfile" ]]; then
-  pass "temp test file created"
-else
-  fail "temp test file created"
-fi
-rm -f "$tmpfile"
+expect_classify() {
+  local target="$1" expected="$2"
+  local got
+  got=$(classify_target "$target" 2>/dev/null || true)
+  if [[ "$got" == "$expected" ]]; then
+    pass "classify '$target' -> $expected"
+  else
+    fail "classify '$target' -> expected $expected, got '$got'"
+  fi
+}
+
+# Real URLs always classified as URL
+expect_classify "https://example.com" URL
+expect_classify "http://example.com" URL
+expect_classify "github.com" URL
+expect_classify "docs.python.org" URL
+
+# Path-prefixed targets are always files
+expect_classify "/tmp/foo.txt" FILE
+expect_classify "./foo.md" FILE
+expect_classify "../bar.json" FILE
+expect_classify "~/notes.md" FILE
+
+# Filenames that look like domains must NOT be opened as URLs.
+# Regression guard for the readme.md TLD typo-squat redirect chain
+# (show README.md -> https://README.md/ -> sponsored junk site).
+expect_classify "README.md" FILE
+expect_classify "package.json" FILE
+expect_classify "tsconfig.json" FILE
+expect_classify "pyproject.toml" FILE
+expect_classify "index.html" FILE
+expect_classify "config.yaml" FILE
+expect_classify "main.py" FILE
+expect_classify "app.js" FILE
 
 # --- Look command ---
 echo ""

@@ -971,6 +971,31 @@ detect_and_handle() {
     return
   fi
 
+  # Explicit path prefix (absolute, relative, or home) -- always a file
+  if [[ "$target" =~ ^(/|\./|\.\./|~) ]]; then
+    handle_file "$target" "$session" "$window" "$pane" "$layout"
+    return
+  fi
+
+  # Existing local file -- always a file. This catches the common case of
+  # `show README.md` from a project directory: README.md exists, so it's
+  # handled as a file rather than the .md TLD.
+  if [[ -e "$target" ]]; then
+    handle_file "$target" "$session" "$window" "$pane" "$layout"
+    return
+  fi
+
+  # Common filename extensions that ALSO happen to be valid TLDs.
+  # Without this guard, `show README.md` in a directory without that file
+  # would resolve to https://README.md/ -- and typo-squatters on the .md
+  # TLD have been known to redirect such hits to junk/affiliate sites.
+  # Bare-domain URLs ending in these extensions are still reachable via
+  # `show https://example.md/` or `show example.md/path`.
+  if [[ "$target" =~ \.(md|js|ts|tsx|jsx|py|rb|sh|go|rs|css|html|htm|json|toml|yml|yaml|xml|sql|conf|cfg|ini|log|txt|nix|lock|env|gitignore)$ ]]; then
+    handle_file "$target" "$session" "$window" "$pane" "$layout"
+    return
+  fi
+
   # Domain name (contains dot, no path separator at start)
   if [[ "$target" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,} ]]; then
     handle_url "$target"
