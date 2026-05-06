@@ -4,6 +4,24 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- **Filename misclassified as URL → opened typo-squat domain.** `show README.md`
+  (and any bare filename with a dot in it) was matched by the domain-detection
+  regex and opened as `https://README.md/` in the user's browser. The `.md`
+  TLD (Moldova) is squatted and was redirecting to a sponsored "deals" landing
+  page. Same risk applied to other valid-TLD-shaped extensions (`.js`/`.py`/
+  `.sh`/`.rs` etc.).
+
+  `detect_and_handle` now classifies a target as a file when it has an
+  explicit path prefix (`/`, `./`, `../`, `~`), exists locally, or ends in a
+  common file extension that overlaps with a TLD. Bare-domain shorthand
+  (`show github.com`) still works for non-conflicting TLDs. To reach a URL
+  whose host literally ends in one of those extensions, use the explicit
+  scheme: `show https://example.md/`.
+
+  Added 16 classification regression tests in `tests/test_show.sh`.
+
 ## [2.3.2] - 2026-05-03
 
 ### Changed
