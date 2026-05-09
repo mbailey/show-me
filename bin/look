@@ -60,8 +60,9 @@ get_tmux_hierarchy() {
 
   echo "Tmux summary:"
 
-  # List sessions
-  while IFS=: read -r session windows attached; do
+  # List sessions. We don't use the windows count (we render the window list
+  # ourselves below), but keep it in the format string + bind to _ to silence SC2034.
+  while IFS=: read -r session _ attached; do
     local prefix="  "
     [[ "$session" == "$current_session" ]] && prefix="→ "
 
