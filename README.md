@@ -91,6 +91,32 @@ Without nvim-remote, show-me:
 
 The `look` command captures screen content. Use responsibly and only when contextually appropriate.
 
+## Why not just a tmux skill?
+
+Most of what `show` does today is implemented with tmux, so it's natural to
+ask whether this should just be a tmux skill that agents drive directly.
+We chose `show` as the user-facing verb on purpose:
+
+- **It captures user intent, not implementation.** "Show me this thing" is
+  the verb the user actually means. Whether the thing lands in tmux,
+  Neovim, or a browser tab is incidental and may change.
+- **It's a deliberately narrow safety surface.** `show` accepts a small
+  set of targets — file, URL, `cmd:`, `pane:`, `diff` — and rejects
+  everything else. Granting an agent permission to run `show` is
+  meaningfully narrower than granting it raw tmux access (which can
+  send keys to any pane, kill sessions, run arbitrary commands).
+- **It spans multiple backends.** URLs go to a browser, files go to
+  Neovim, panes are managed in tmux. A "tmux skill" wouldn't cover the
+  browser/editor cases without bending the name out of shape.
+- **A separate tmux skill exists for tmux itself.** When agents *do*
+  need direct tmux help — debugging layouts, authoring scripts — the
+  `tmux:tmux` skill covers that. The two are complementary, not
+  redundant.
+
+So `show-me` stays the user-verb skill and command surface; tmux stays
+the underlying mechanism. The boundary between them is the safety
+boundary.
+
 ## See Also
 
 - [SKILL.md](skills/show-me/SKILL.md) - Claude Code skill for AI integration
