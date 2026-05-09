@@ -70,10 +70,15 @@ classify_target() {
   (
     # shellcheck disable=SC1090
     source "$SHOW" >/dev/null 2>&1 || true
+    # shellcheck disable=SC2329  # stubs replace the real handlers; called via detect_and_handle
     handle_url()  { echo "URL"; }
+    # shellcheck disable=SC2329
     handle_file() { echo "FILE"; }
+    # shellcheck disable=SC2329
     handle_diff() { echo "DIFF"; }
+    # shellcheck disable=SC2329
     handle_command() { echo "CMD"; }
+    # shellcheck disable=SC2329
     handle_pane()  { echo "PANE"; }
     detect_and_handle "$1" "" "" "" ""
   )
@@ -100,6 +105,7 @@ expect_classify "docs.python.org" URL
 expect_classify "/tmp/foo.txt" FILE
 expect_classify "./foo.md" FILE
 expect_classify "../bar.json" FILE
+# shellcheck disable=SC2088  # literal "~/notes.md" — testing that classifier doesn't expand it
 expect_classify "~/notes.md" FILE
 
 # Filenames that look like domains must NOT be opened as URLs.
@@ -188,6 +194,7 @@ echo ""
 echo "Layout validation:"
 
 # Source the script to access functions
+# shellcheck disable=SC1090  # $SHOW is dynamic per test invocation
 source "$SHOW"
 
 if is_split_layout "right"; then
@@ -272,6 +279,7 @@ fi
 # handle_file: scan from the function definition to the next `^}` and assert
 # that the stacked-skip guard is NOT present in that range.
 file_block=$(awk '/^handle_file\(\) \{/,/^}/' "$SHOW")
+# shellcheck disable=SC2016  # literal source-code pattern — variables must NOT expand
 if grep -q '\[\[ "$layout" != "stacked" \]\]' <<<"$file_block"; then
   fail "handle_file: stacked-skip guard still present (file shows should reuse nvim under stacked)"
 else
@@ -280,6 +288,7 @@ fi
 
 # handle_diff: same scan, but the guard MUST still be present (SHOW-62 isolation).
 diff_block=$(awk '/^handle_diff\(\) \{/,/^}/' "$SHOW")
+# shellcheck disable=SC2016  # literal source-code pattern — variables must NOT expand
 if grep -q '\[\[ "$layout" != "stacked" \]\]' <<<"$diff_block"; then
   pass "handle_diff: stacked-skip guard preserved (avoids SHOW-62 hijack)"
 else
@@ -301,6 +310,40 @@ if [[ -f "$manifest_file" ]] && command -v jq >/dev/null 2>&1; then
   fi
 else
   skip "version drift check (jq or plugin.json missing)"
+fi
+
+# --- docs/commands.md env-var drift check ---
+# Every SHOW_* env var documented in `bin/show --help` should be in
+# docs/commands.md, and vice versa. Catches the kind of drift the
+# 2026-05-10 review found (SHOW_LAYOUT/SHOW_AUTO_ATTACH absent from docs).
+echo ""
+echo "Docs drift check (SHOW_* env vars):"
+
+commands_doc="${SCRIPT_DIR}/../docs/commands.md"
+if [[ -f "$commands_doc" ]]; then
+  # Extract SHOW_* names from --help "Environment:" block
+  help_vars=$("$SHOW" --help 2>/dev/null \
+    | awk '/^Environment:/{flag=1; next} flag' \
+    | grep -oE '^[[:space:]]+SHOW_[A-Z_]+' \
+    | awk '{print $1}' | sort -u)
+  # Extract SHOW_* names from the docs Environment Variables table
+  # shellcheck disable=SC2016  # backtick-delimited markdown var names — literal regex
+  doc_vars=$(grep -oE '`SHOW_[A-Z_]+`' "$commands_doc" | tr -d '`' | sort -u)
+
+  # Symmetric difference
+  only_in_help=$(comm -23 <(echo "$help_vars") <(echo "$doc_vars"))
+  only_in_doc=$(comm -13 <(echo "$help_vars") <(echo "$doc_vars"))
+
+  if [[ -z "$only_in_help" && -z "$only_in_doc" ]]; then
+    pass "docs/commands.md SHOW_* env vars match bin/show --help"
+  else
+    msg="docs/commands.md drift vs --help:"
+    [[ -n "$only_in_help" ]] && msg+=" missing in docs: $(echo "$only_in_help" | tr '\n' ' ')"
+    [[ -n "$only_in_doc" ]] && msg+=" missing in --help: $(echo "$only_in_doc" | tr '\n' ' ')"
+    fail "$msg"
+  fi
+else
+  skip "docs drift check (docs/commands.md missing)"
 fi
 
 # --- Summary ---

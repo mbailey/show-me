@@ -15,7 +15,7 @@ Display content for users (files, URLs, commands) or observe their screen contex
 | `show <file>` | `show main.py:10-20` | Open file highlighting line range |
 | `show <url>` | `show github.com` | Open URL in browser |
 | `show "cmd:..."` | `show "cmd:git log"` | Run command in shell pane |
-| `look` | `look -l 100` | Capture pane content |
+| `look` | `look -l 100` | Capture pane with last 100 lines of scrollback |
 | `look -H` | `look -H` | Show tmux hierarchy only |
 
 ## When to Use

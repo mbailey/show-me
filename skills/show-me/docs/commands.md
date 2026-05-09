@@ -19,14 +19,27 @@ Targets:
   cmd:<command>            Run command in shell pane
   pane:<id>                Focus tmux pane by ID (cross-session)
   pane:self                Focus the current pane (agent self-focus)
+  diff                     Open DiffView (unstaged changes)
+  diff:<ref>               Open DiffView against ref (branch, commit, range)
+  diff:<ref> -- <path>     Open DiffView scoped to path
 
 Options:
-  -s, --session NAME       Tmux session for show window (default: show)
+  -s, --session NAME       Tmux session for show window
+  -w, --window NAME        Tmux window name (default: show)
   -p, --pane ID            Target specific pane ID
+  --layout VALUE           Layout: right, below, left, above, window, stacked
+  --here                   Split pane (right for files, below for commands)
   --hold SECONDS           Hold visual focus for N seconds (default: 30)
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
+  --no-attach              Don't auto-attach terminal if no clients
+  -h, --help               Show help
+  -V, --version            Show version
 ```
+
+> **Source of truth:** `bin/show --help` is canonical. This block mirrors it.
+> If they drift, the test suite will fail (see `tests/test_show.sh`,
+> "help drift" check).
 
 ### Open files in Neovim
 
@@ -95,13 +108,50 @@ show --hold 10 output.log         # Quick glance, 10s hold
 show README.md                    # Default 30s hold
 ```
 
+### Layouts
+
+By default, `show` opens content in a separate "show" window. The `--layout`
+flag (or `SHOW_LAYOUT` env var) routes content into a split pane in the
+current window instead — useful for side-by-side viewing while you keep
+working in the original pane.
+
+```bash
+show --layout right README.md     # Right split (70% wide by default)
+show --layout below "cmd:make"    # Bottom split (30% tall by default)
+show --layout left  README.md     # Left split
+show --layout above "cmd:date"    # Top split
+show --layout stacked "cmd:claude" # Stacked split — accumulate panes
+show --layout window README.md    # Default: separate "show" window
+show --here README.md             # Shorthand: right for files, below for commands
+```
+
+`SHOW_SPLIT_SIZE=40` overrides the size default. Stacked layout is
+particularly useful for "teammate" workflows: each `show --layout stacked
+cmd:'…'` adds a new pane below the previous, instead of replacing it.
+
+### DiffView (git diff in Neovim)
+
+Requires the [`sindrets/diffview.nvim`](https://github.com/sindrets/diffview.nvim) plugin.
+
+```bash
+show diff                         # Unstaged changes
+show diff:main                    # Diff vs main branch
+show diff:HEAD~3                  # Last 3 commits
+show "diff:main -- src/"          # Scoped to src/
+show "diff:main..feature"         # Range diff
+```
+
+DiffView opens in a Neovim instance scoped to the git repo root.
+
 ### Advanced options
 
 ```bash
 show file.py -s dev               # Use "dev" session instead of "show"
+show file.py -w editor            # Use "editor" window instead of "show"
 show file.py -p %36               # Open in specific pane
 show --no-focus file.py           # Open without switching focus
 show --no-zoom file.py            # Open without zooming pane
+show --no-attach file.py          # Don't auto-attach if no clients
 ```
 
 ## look - Observe Context
@@ -215,14 +265,18 @@ Consider reviewing before sharing. Use -H to show hierarchy only without content
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SHOW_SESSION` | `show` | Default tmux session name for show window |
-| `SHOW_BROWSER` | (auto) | Browser for URLs (e.g., `Firefox`, `Chrome`, `Safari`) |
-| `SHOW_HOLD_SECONDS` | `30` | Default focus hold duration in seconds |
-| `SHOW_FOCUS` | `true` | Switch focus to show window |
-| `SHOW_ZOOM` | `true` | Zoom pane after showing content |
-| `NVIM_SOCKET_PATH` | (auto) | Override Neovim socket path |
+These mirror `bin/show --help`. The help text is canonical; this table follows it.
+
+| Variable           | Default       | Description                                                  |
+| ------------------ | ------------- | ------------------------------------------------------------ |
+| `SHOW_SESSION`     | (auto-detect) | Target tmux session                                          |
+| `SHOW_WINDOW`      | `show`        | Target window name                                           |
+| `SHOW_BROWSER`     | (auto)        | Browser for URLs (`Firefox`, `Chrome`, `Safari`, …)          |
+| `SHOW_AUTO_ATTACH` | `true`        | Auto-attach terminal if no clients                           |
+| `SHOW_FOCUS`       | `true`        | Switch focus to show window/pane                             |
+| `SHOW_ZOOM`        | `true`        | Zoom pane after showing content (window mode)                |
+| `SHOW_LAYOUT`      | `window`      | Layout mode: `right`/`below`/`left`/`above`/`stacked`/`window` |
+| `SHOW_SPLIT_SIZE`  | (auto)        | Split pane percentage; overrides direction defaults (70% side, 30% top/bottom) |
 
 ## Installation and Running Commands
 
