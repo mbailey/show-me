@@ -4,6 +4,19 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stacked layout now reuses existing nvim for file shows (SHOW-68).** Previously,
+  `show --layout stacked file.md` always created a new nvim pane, even when one
+  already existed — so subsequent file shows accumulated stacked nvim panes
+  instead of replacing the buffer. This was an intentional design choice for
+  teammate-style accumulation (SHOW-54), but it's wrong for file shows. The
+  guard has been relaxed in `handle_file` only: file shows reuse existing nvim
+  under any split layout. `handle_command` (cmd: spawns) keeps its create-new-
+  pane behavior so teammate accumulation under stacked is unaffected.
+  `handle_diff` keeps the stacked-skip guard to avoid the SHOW-62 hijack.
+  Two regression tests added.
+
 ### Security
 
 - **Filename misclassified as URL → opened typo-squat domain.** `show README.md`

@@ -438,11 +438,18 @@ handle_file() {
   local display_location
 
   if is_split_layout "$layout"; then
-    # Split mode: check for existing Neovim pane before creating a new split
-    # Stacked always creates a new pane — never reuse an existing Neovim instance
+    # Split mode: check for existing Neovim pane before creating a new split.
+    # File shows REUSE existing nvim under any split layout including stacked
+    # (SHOW-68). The stacked-skip-reuse guard was originally added (SHOW-54)
+    # because stacked was designed for teammate-style accumulation where each
+    # spawn wants its own pane — but that's the `cmd:` use case. For file
+    # shows, reuse is correct: subsequent `show file.md` calls land in the
+    # same nvim. handle_command keeps its own create-new-pane behavior, so
+    # cmd-driven teammate accumulation under stacked is unaffected. handle_diff
+    # also keeps the stacked-skip-reuse guard to avoid the SHOW-62 hijack.
     use_split=true
     local existing_pane
-    if [[ "$layout" != "stacked" ]] && existing_pane=$(find_nvim_show_pane); then
+    if existing_pane=$(find_nvim_show_pane); then
       pane_id="$existing_pane"
       reused_pane=true
       display_location="split (reused)"

@@ -264,6 +264,28 @@ else
   fail "window mode does not trigger split reuse logic"
 fi
 
+# --- Stacked nvim reuse for file shows (SHOW-68) ---
+# Verify the reuse-skip guard for stacked has been removed from handle_file
+# (file shows reuse existing nvim under any split layout) but is preserved in
+# handle_diff (diffs always get their own pane to avoid SHOW-62 hijack).
+
+# handle_file: scan from the function definition to the next `^}` and assert
+# that the stacked-skip guard is NOT present in that range.
+file_block=$(awk '/^handle_file\(\) \{/,/^}/' "$SHOW")
+if grep -q '\[\[ "$layout" != "stacked" \]\]' <<<"$file_block"; then
+  fail "handle_file: stacked-skip guard still present (file shows should reuse nvim under stacked)"
+else
+  pass "handle_file: stacked allows nvim reuse (SHOW-68)"
+fi
+
+# handle_diff: same scan, but the guard MUST still be present (SHOW-62 isolation).
+diff_block=$(awk '/^handle_diff\(\) \{/,/^}/' "$SHOW")
+if grep -q '\[\[ "$layout" != "stacked" \]\]' <<<"$diff_block"; then
+  pass "handle_diff: stacked-skip guard preserved (avoids SHOW-62 hijack)"
+else
+  fail "handle_diff: stacked-skip guard missing (diffs would hijack reused nvim — SHOW-62 regression)"
+fi
+
 # --- Version drift check (SHOW-64) ---
 echo ""
 echo "Version drift check (SHOW-64):"
