@@ -1,0 +1,21 @@
+# Secret-shaped files (defence-in-depth — none should ever live here)
+.env
+.env.*
+*.key
+*.pem
+id_rsa*
+credentials*
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Editor scratch
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Review output (ad-hoc, see review:review skill)
+reviews/

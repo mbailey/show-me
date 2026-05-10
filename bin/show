@@ -257,10 +257,13 @@ focus_pane() {
     | grep "^${pane_id} " | cut -d' ' -f2)
 
   # Find the user's client and switch it to the target session
-  # Priority: focused client > first attached client
+  # Priority: focused client > first attached client.
+  # Trailing `|| true` so a grep miss (no focused client — common when tmux
+  # hasn't seen a focus event recently) doesn't kill the script under
+  # pipefail/errexit.
   local client_tty=""
   client_tty=$(tmux list-clients -F "#{client_tty} #{client_flags}" 2>/dev/null \
-    | grep "focused" | head -1 | cut -d' ' -f1)
+    | grep "focused" | head -1 | cut -d' ' -f1 || true)
   if [[ -z "$client_tty" ]]; then
     # No focused client, use first attached
     client_tty=$(tmux list-clients -F "#{client_tty}" 2>/dev/null | head -1)
@@ -434,7 +437,6 @@ handle_file() {
 
   local pane_id
   local use_split=false
-  local reused_pane=false
   local display_location
 
   if is_split_layout "$layout"; then
@@ -451,7 +453,6 @@ handle_file() {
     local existing_pane
     if existing_pane=$(find_nvim_show_pane); then
       pane_id="$existing_pane"
-      reused_pane=true
       display_location="split (reused)"
     else
       if ! pane_id=$(create_split_pane "$layout"); then
@@ -498,8 +499,11 @@ handle_file() {
       return 1
     fi
   else
-    # Start neovim in pane
-    local nvim_cmd="nvim --listen '$socket_path' '$file_path'"
+    # Start neovim in pane.
+    # Use printf %q to safely quote socket and file paths — handles spaces,
+    # quotes, and other shell-meaningful characters in filenames.
+    local nvim_cmd
+    printf -v nvim_cmd 'nvim --listen %q %q' "$socket_path" "$file_path"
     tmux send-keys -t "$pane_id" "$nvim_cmd" Enter
 
     # Wait for Neovim to start and socket to become available
@@ -728,7 +732,6 @@ handle_diff() {
 
   local pane_id
   local use_split=false
-  local reused_pane=false
   local display_location
 
   if is_split_layout "$layout"; then
@@ -738,7 +741,6 @@ handle_diff() {
     local existing_pane
     if [[ "$layout" != "stacked" ]] && existing_pane=$(find_nvim_show_pane); then
       pane_id="$existing_pane"
-      reused_pane=true
       display_location="split (reused)"
     else
       if ! pane_id=$(create_split_pane "$layout"); then
@@ -775,10 +777,14 @@ handle_diff() {
       return 1
     fi
   else
-    # Start Neovim in the git root with DiffView as startup command
-    # Using +command avoids race with dashboard and plugin lazy-loading
+    # Start Neovim in the git root with DiffView as startup command.
+    # Using +command avoids race with dashboard and plugin lazy-loading.
+    # Use printf %q to safely quote git_root and socket_path; the +command
+    # form needs spaces escaped so the whole +DiffviewOpen ... arg stays one token.
     local escaped_cmd="${nvim_diffview_cmd// /\\ }"
-    local nvim_cmd="cd '${git_root}' && nvim --listen '${socket_path}' +${escaped_cmd}"
+    local nvim_cmd
+    printf -v nvim_cmd 'cd %q && nvim --listen %q +%s' \
+      "$git_root" "$socket_path" "$escaped_cmd"
     tmux send-keys -t "$pane_id" "$nvim_cmd" Enter
 
     if ! wait_for_nvim_socket "$socket_path"; then
