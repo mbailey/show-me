@@ -1,0 +1,39 @@
+name: test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tmux (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y tmux
+
+      - name: Install tmux + shellcheck (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install tmux shellcheck
+          # bash 3.2 ships with macOS; tests work on bash 5 (brewed) too
+          # but the make targets target /usr/bin/env bash, so default is fine.
+
+      - name: Install shellcheck (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
