@@ -4,6 +4,17 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **GitHub Actions CI workflow** — `make test` now runs on Ubuntu and macOS for every push and pull request, catching cross-platform regressions before merge.
+- **`make lint` target** — runs `shellcheck` over `bin/show` and `bin/look` (plus `.gitignore` cleanup for editor/OS noise).
+- **"Why not just a tmux skill?" rationale** in the README, explaining where `show` adds value over hand-rolled tmux commands.
+
+### Changed
+
+- **README and `commands.md` brought to feature parity with `bin/show --help`** — flags, env vars, and layout values are now documented consistently across all three surfaces.
+- **Code-hygiene pass on `bin/show` and `bin/look`** — quoting fixes (defence-in-depth against filename-with-quote injection in the `nvim --listen` send-keys path), removal of an unused `reused_pane` variable, and small readability improvements. No behaviour change.
+
 ### Fixed
 
 - **Stacked layout now reuses existing nvim for file shows (SHOW-68).** Previously,
