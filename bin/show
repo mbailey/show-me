@@ -15,7 +15,7 @@ SHOW_BROWSER="${SHOW_BROWSER:-}"  # Empty means auto-detect
 SHOW_AUTO_ATTACH="${SHOW_AUTO_ATTACH:-true}"
 SHOW_FOCUS="${SHOW_FOCUS:-true}"
 SHOW_ZOOM="${SHOW_ZOOM:-true}"
-SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty = content-type default (right for files, below for commands)
+SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty resolves to 'stacked' in main() (SHOW-86). Explicit SHOW_LAYOUT=window restores the historical separate-window behavior.
 SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-}"  # Split pane percentage (default: 70% side, 30% top/bottom)
 
 # Get private socket directory for security
@@ -96,7 +96,7 @@ Options:
   -w, --window NAME        Use specific window name (default: show)
   -p, --pane ID            Target specific pane ID
   --layout VALUE           Layout mode: right, below, left, above, window, stacked
-                           Overrides SHOW_LAYOUT env var
+                           Default: stacked. Overrides SHOW_LAYOUT env var.
   --here                   Show in a split pane (shorthand for content-type default
                            direction: right for files, below for commands)
   --no-focus               Don't switch focus to show window
@@ -108,9 +108,16 @@ Options:
   -V, --version            Show version
 
 Behavior:
-  By default, show opens files in the "show" window of your current tmux
-  session. If you're not in tmux, it uses an attached session, or creates
-  one if none exist.
+  By default, show uses the 'stacked' layout: a leader pane on the left
+  with content panes accumulating to the right. File shows reuse the
+  existing Neovim pane; command shows create a new pane each call.
+
+  Set SHOW_LAYOUT=window (or pass --layout window) to use the historical
+  behavior — content goes into a separate "show" window of your tmux
+  session. If you're not in tmux, show uses an attached session, or
+  creates one if none exist.
+
+  See docs/layouts.md for the full layout reference.
 
   All focus commands support cross-session switching. If the target pane
   or window is in a different tmux session, show will switch the client
@@ -147,8 +154,9 @@ Environment:
   SHOW_AUTO_ATTACH         Auto-attach terminal if no clients (default: true)
   SHOW_FOCUS               Switch focus to show window (default: true)
   SHOW_ZOOM                Zoom pane after showing content (default: true)
-  SHOW_LAYOUT              Layout mode (default: window)
+  SHOW_LAYOUT              Layout mode (default: stacked)
                            Values: right, below, left, above, window, stacked
+                           Set to 'window' to restore the pre-2.4 default.
   SHOW_SPLIT_SIZE          Split pane percentage (overrides direction defaults)
                            Defaults: 70% for right/left, 30% for below/above
 
@@ -1104,6 +1112,15 @@ EOF
     echo "Error: No target specified" >&2
     echo "Run 'show --help' for usage" >&2
     exit 1
+  fi
+
+  # Default layout: stacked (SHOW-86). Empty SHOW_LAYOUT (no env var, no
+  # --layout flag) resolves to 'stacked'. Explicit --here keeps its sentinel
+  # value so handle_* functions can still pick content-type direction.
+  # Escape hatch: SHOW_LAYOUT=window (or --layout window) restores the
+  # pre-2.4 separate-window behavior.
+  if [[ -z "$SHOW_LAYOUT" ]]; then
+    SHOW_LAYOUT="stacked"
   fi
 
   # Validate layout value

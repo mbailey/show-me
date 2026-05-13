@@ -4,6 +4,22 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Default layout is now `stacked` (SHOW-86).** With no `SHOW_LAYOUT` env var
+  and no `--layout` flag, `show` opens content as a stacked split — a leader
+  pane on the left, content panes accumulating to the right. File shows
+  reuse the existing Neovim pane (SHOW-68); `cmd:` shows create a new pane
+  per call. To restore the pre-2.4 separate-window behavior, set
+  `SHOW_LAYOUT=window` in your shell, or pass `--layout window` per call.
+  Help text, `docs/commands.md`, and the new [`docs/layouts.md`](docs/layouts.md)
+  reflect the change. Minor bump because this is a user-visible default flip.
+
+### Added
+
+- **`docs/layouts.md`** — full layout reference: every option, nvim-reuse
+  semantics, when to pick which. Linked from `README.md` and `docs/commands.md`.
+
 ## [2.3.3] - 2026-05-13
 
 ### Added
