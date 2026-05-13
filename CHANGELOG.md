@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-05-13
+
 ### Added
 
 - **GitHub Actions CI workflow** — `make test` now runs on Ubuntu and macOS for every push and pull request, catching cross-platform regressions before merge.

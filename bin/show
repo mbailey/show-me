@@ -6,7 +6,7 @@ set -o nounset -o pipefail -o errexit
 # Part of the show-me package for visual context sharing
 # between AI assistants and users.
 
-VERSION="2.3.2"
+VERSION="2.3.3"
 
 # Configuration with defaults
 SHOW_SESSION="${SHOW_SESSION:-}"  # Empty = auto-detect current session
