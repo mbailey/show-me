@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [2.3.4] - 2026-05-13
+
 ### Changed
 
 - **Default layout is now `stacked` (SHOW-86).** With no `SHOW_LAYOUT` env var
