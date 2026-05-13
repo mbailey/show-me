@@ -110,24 +110,26 @@ show README.md                    # Default 30s hold
 
 ### Layouts
 
-By default, `show` opens content in a separate "show" window. The `--layout`
-flag (or `SHOW_LAYOUT` env var) routes content into a split pane in the
-current window instead — useful for side-by-side viewing while you keep
-working in the original pane.
+`show` opens content in a **stacked** layout by default since 2.4.0 — a
+leader pane on the left, content panes accumulating to the right. File shows
+reuse the existing Neovim pane; `cmd:` shows create a new pane each call. The
+`--layout` flag (or `SHOW_LAYOUT` env var) selects a different layout.
 
 ```bash
+show README.md                    # Default: stacked split (reuses nvim)
 show --layout right README.md     # Right split (70% wide by default)
 show --layout below "cmd:make"    # Bottom split (30% tall by default)
 show --layout left  README.md     # Left split
 show --layout above "cmd:date"    # Top split
-show --layout stacked "cmd:claude" # Stacked split — accumulate panes
-show --layout window README.md    # Default: separate "show" window
+show --layout window README.md    # Pre-2.4 default: separate "show" window
 show --here README.md             # Shorthand: right for files, below for commands
 ```
 
-`SHOW_SPLIT_SIZE=40` overrides the size default. Stacked layout is
-particularly useful for "teammate" workflows: each `show --layout stacked
-cmd:'…'` adds a new pane below the previous, instead of replacing it.
+`SHOW_SPLIT_SIZE=40` overrides the size default. Set `SHOW_LAYOUT=window` to
+restore the pre-2.4 separate-window default shell-wide.
+
+See [`layouts.md`](layouts.md) for the full layout reference (every option,
+nvim-reuse semantics, when to pick which).
 
 ### DiffView (git diff in Neovim)
 
@@ -275,7 +277,7 @@ These mirror `bin/show --help`. The help text is canonical; this table follows i
 | `SHOW_AUTO_ATTACH` | `true`        | Auto-attach terminal if no clients                           |
 | `SHOW_FOCUS`       | `true`        | Switch focus to show window/pane                             |
 | `SHOW_ZOOM`        | `true`        | Zoom pane after showing content (window mode)                |
-| `SHOW_LAYOUT`      | `window`      | Layout mode: `right`/`below`/`left`/`above`/`stacked`/`window` |
+| `SHOW_LAYOUT`      | `stacked`     | Layout mode: `right`/`below`/`left`/`above`/`stacked`/`window`. Set to `window` to restore the pre-2.4 default. |
 | `SHOW_SPLIT_SIZE`  | (auto)        | Split pane percentage; overrides direction defaults (70% side, 30% top/bottom) |
 
 ## Installation and Running Commands

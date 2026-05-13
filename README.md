@@ -167,6 +167,7 @@ boundary.
 ## See Also
 
 - [`docs/commands.md`](docs/commands.md) — full command reference (every flag, every target)
+- [`docs/layouts.md`](docs/layouts.md) — layout reference (every layout option, defaults, nvim-reuse semantics)
 - [`docs/voice-mode.md`](docs/voice-mode.md) — VoiceMode integration (focus hold / visual conch)
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — common issues and fixes
 - [`skills/show-me/SKILL.md`](skills/show-me/SKILL.md) — Claude Code skill for AI integration
