@@ -17,6 +17,7 @@ SHOW_FOCUS="${SHOW_FOCUS:-true}"
 SHOW_ZOOM="${SHOW_ZOOM:-true}"
 SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty resolves to 'stacked' in main() (SHOW-86). Explicit SHOW_LAYOUT=window restores the historical separate-window behavior.
 SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-}"  # Split pane percentage (default: 70% side, 30% top/bottom)
+SHOW_FORMAT="${SHOW_FORMAT:-human}"  # Output format for cmd: handle. human = readable line + [pane %NN]; json = one-line machine handle (SHOW-92)
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
@@ -99,6 +100,9 @@ Options:
                            Default: stacked. Overrides SHOW_LAYOUT env var.
   --here                   Show in a split pane (shorthand for content-type default
                            direction: right for files, below for commands)
+  --format VALUE           cmd: output format: human (default) or json.
+                           human appends [pane %NN] to the line; json emits a
+                           one-line machine-readable handle. Overrides SHOW_FORMAT.
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
   --no-attach              Don't auto-attach terminal if no clients
@@ -145,6 +149,7 @@ Examples:
   show --layout right README.md      # Open in split pane to the right
   show --layout below "cmd:make"     # Run command in pane below
   show --here README.md              # Split pane (default direction for type)
+  show --format json "cmd:make"      # Run command, emit one-line JSON handle
   show --hold 60 README.md           # Hold focus for 60s (long document)
 
 Environment:
@@ -159,6 +164,7 @@ Environment:
                            Set to 'window' to restore the pre-2.4 default.
   SHOW_SPLIT_SIZE          Split pane percentage (overrides direction defaults)
                            Defaults: 70% for right/left, 30% for below/above
+  SHOW_FORMAT              cmd: output format: human (default) or json
 
 EOF
 }
@@ -613,6 +619,56 @@ handle_url() {
   echo "Opened $url in browser"
 }
 
+# Minimal JSON string escaper (no jq dependency). Escapes the characters
+# JSON requires: backslash, double-quote, and the common control chars.
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  printf '%s' "$s"
+}
+
+# Emit the cmd: handle. SHOW-92: humans get the unchanged line plus an
+# additive `[pane %NN]` suffix; agents pass --format json for a one-line
+# machine-readable handle (pane, session, window name, created, status).
+emit_command_handle() {
+  local pane_id="$1" command="$2" display_location="$3" layout="$4" created="$5"
+
+  # Liveness (best-effort). A dead pane is only observable if remain-on-exit
+  # is set; otherwise tmux removes it and we report status=unknown.
+  local status="alive"
+  if ! tmux display-message -p -t "$pane_id" '' >/dev/null 2>&1; then
+    status="unknown"
+  elif [[ "$(tmux display-message -p -t "$pane_id" '#{pane_dead}' 2>/dev/null)" == "1" ]]; then
+    local code
+    code=$(tmux display-message -p -t "$pane_id" '#{pane_dead_status}' 2>/dev/null)
+    status="exited:${code:-unknown}"
+  fi
+
+  if [[ "$SHOW_FORMAT" == "json" ]]; then
+    local s_name w_name w_idx p_idx
+    IFS='|' read -r s_name w_name w_idx p_idx < <(
+      tmux display-message -p -t "$pane_id" \
+        '#{session_name}|#{window_name}|#{window_index}|#{pane_index}' 2>/dev/null)
+    printf '{"pane":"%s","session":"%s","window":"%s","window_index":%s,"pane_index":%s,"created":%s,"layout":"%s","status":"%s","cmd":"%s"}\n' \
+      "$(json_escape "$pane_id")" \
+      "$(json_escape "$s_name")" \
+      "$(json_escape "$w_name")" \
+      "${w_idx:-null}" \
+      "${p_idx:-null}" \
+      "$created" \
+      "$(json_escape "$layout")" \
+      "$(json_escape "$status")" \
+      "$(json_escape "$command")"
+  else
+    # Option A: unchanged human line + additive pane handle.
+    echo "Executed: $command in $display_location [pane $pane_id]"
+  fi
+}
+
 # Run command in shell pane
 handle_command() {
   local command="$1"
@@ -634,6 +690,12 @@ handle_command() {
   local use_split=false
   local display_location
 
+  # Snapshot existing panes so we can report created=true|false for the
+  # resolved pane (SHOW-92). tmux never reuses pane IDs, so "not in the
+  # before-set" is a reliable new-pane signal regardless of split/window path.
+  local panes_before
+  panes_before=$(tmux list-panes -a -F '#{pane_id}' 2>/dev/null)
+
   if is_split_layout "$layout"; then
     # Split mode: create pane in current window
     use_split=true
@@ -652,6 +714,12 @@ handle_command() {
     display_location="${session}:${window}"
   fi
 
+  # created=true when the resolved pane did not exist before this call.
+  local created=false
+  if ! grep -qxF "$pane_id" <<<"$panes_before"; then
+    created=true
+  fi
+
   # Send command to pane
   tmux send-keys -t "$pane_id" "$command" Enter
 
@@ -667,7 +735,7 @@ handle_command() {
     fi
   fi
 
-  echo "Executed: $command in $display_location"
+  emit_command_handle "$pane_id" "$command" "$display_location" "$layout" "$created"
 }
 
 # Focus a tmux pane (supports cross-session switching)
@@ -1088,6 +1156,10 @@ EOF
         SHOW_LAYOUT="$2"
         shift 2
         ;;
+      --format)
+        SHOW_FORMAT="$2"
+        shift 2
+        ;;
       --here)
         SHOW_LAYOUT="here"
         shift
@@ -1125,6 +1197,15 @@ EOF
 
   # Validate layout value
   validate_layout "$SHOW_LAYOUT" || exit 1
+
+  # Validate output format (SHOW-92)
+  case "$SHOW_FORMAT" in
+    human|json) ;;
+    *)
+      echo "Error: Invalid format: $SHOW_FORMAT (expected: human, json)" >&2
+      exit 1
+      ;;
+  esac
 
   # Set hold duration: CLI --hold > env var > default 30
   if [[ -n "$hold_seconds" ]]; then

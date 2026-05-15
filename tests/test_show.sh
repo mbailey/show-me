@@ -295,6 +295,85 @@ else
   fail "handle_diff: stacked-skip guard missing (diffs would hijack reused nvim — SHOW-62 regression)"
 fi
 
+# --- cmd: machine-readable handle (SHOW-92) ---
+echo ""
+echo "cmd: handle (SHOW-92):"
+
+# --format appears in --help Options
+if "$SHOW" --help 2>&1 | grep -qE -- '--format VALUE'; then
+  pass "--help documents --format"
+else
+  fail "--help documents --format"
+fi
+
+# Invalid --format value is rejected before any pane is touched (no tmux needed)
+fmt_out=$("$SHOW" --format bogus "cmd:true" 2>&1) || true
+if grep -q "Invalid format: bogus" <<<"$fmt_out"; then
+  pass "--format rejects invalid value"
+else
+  fail "--format rejects invalid value (got: $fmt_out)"
+fi
+
+# json_escape: backslash and double-quote are escaped (unit, sourced)
+escape_out=$(
+  # shellcheck disable=SC1090
+  source "$SHOW" >/dev/null 2>&1 || true
+  json_escape 'a\b"c'
+)
+if [[ "$escape_out" == 'a\\b\"c' ]]; then
+  pass "json_escape escapes backslash and quote"
+else
+  fail "json_escape escapes backslash and quote (got: $escape_out)"
+fi
+
+if [[ -n "${TMUX:-}" ]]; then
+  # Default (human) line ends with [pane %NN] and the pane is real/capturable
+  h_out=$("$SHOW" --layout stacked "cmd:echo SHOW92_MARKER" 2>/dev/null) || true
+  h_pane=$(grep -oE '\[pane (%[0-9]+)\]' <<<"$h_out" | grep -oE '%[0-9]+' || true)
+  if [[ -n "$h_pane" ]] && grep -qE '\[pane %[0-9]+\]$' <<<"$h_out"; then
+    pass "human cmd: line ends with [pane %NN]"
+  else
+    fail "human cmd: line ends with [pane %NN] (got: $h_out)"
+  fi
+  if [[ -n "$h_pane" ]] && tmux capture-pane -p -t "$h_pane" >/dev/null 2>&1; then
+    pass "emitted pane ID is capturable via tmux"
+  else
+    fail "emitted pane ID is capturable via tmux (pane: ${h_pane:-none})"
+  fi
+  [[ -n "$h_pane" ]] && tmux kill-pane -t "$h_pane" 2>/dev/null || true
+
+  # --format json: one line, required keys, created=true for a fresh split
+  j_out=$("$SHOW" --layout stacked --format json "cmd:echo SHOW92_JSON" 2>/dev/null) || true
+  j_pane=$(grep -oE '"pane":"(%[0-9]+)"' <<<"$j_out" | grep -oE '%[0-9]+' || true)
+  if [[ "$(wc -l <<<"$j_out" | tr -d ' ')" == "1" ]] \
+     && grep -q '"pane":"%' <<<"$j_out" \
+     && grep -q '"session":"' <<<"$j_out" \
+     && grep -q '"window":"' <<<"$j_out" \
+     && grep -q '"status":"' <<<"$j_out"; then
+    pass "--format json emits one-line handle with required keys"
+  else
+    fail "--format json emits one-line handle with required keys (got: $j_out)"
+  fi
+  if grep -q '"created":true' <<<"$j_out"; then
+    pass "created=true for a freshly split pane"
+  else
+    fail "created=true for a freshly split pane (got: $j_out)"
+  fi
+  # Validate it parses as JSON when a parser is available
+  if command -v jq >/dev/null 2>&1; then
+    if jq -e . >/dev/null 2>&1 <<<"$j_out"; then
+      pass "--format json output is valid JSON (jq)"
+    else
+      fail "--format json output is valid JSON (jq) (got: $j_out)"
+    fi
+  else
+    skip "json validity (jq not installed)"
+  fi
+  [[ -n "$j_pane" ]] && tmux kill-pane -t "$j_pane" 2>/dev/null || true
+else
+  skip "cmd: handle pane/json tests (not in tmux)"
+fi
+
 # --- Version drift check (SHOW-64) ---
 echo ""
 echo "Version drift check (SHOW-64):"

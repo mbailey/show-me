@@ -4,6 +4,17 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`show cmd:` returns a machine-readable handle (SHOW-92).** The default
+  human line now ends with `[pane %NN]` so an agent can `tmux capture-pane
+  -t %NN` and follow up — `cmd:` is no longer fire-and-forget. New
+  `--format json` flag (and `SHOW_FORMAT` env var) emits a one-line JSON
+  handle with `pane`, full `session`/`window` names, `window_index`,
+  `pane_index`, `created` (new pane vs reused), `layout`, `status`
+  (best-effort liveness), and `cmd`. Existing interactive usage is
+  unchanged apart from the additive `[pane %NN]` suffix.
+
 ## [2.3.4] - 2026-05-13
 
 ### Changed

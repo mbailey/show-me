@@ -29,6 +29,7 @@ Options:
   -p, --pane ID            Target specific pane ID
   --layout VALUE           Layout: right, below, left, above, window, stacked
   --here                   Split pane (right for files, below for commands)
+  --format VALUE           cmd: output format: human (default) or json
   --hold SECONDS           Hold visual focus for N seconds (default: 30)
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
@@ -81,6 +82,33 @@ show "cmd:pytest -v"              # Run tests with output
 ```
 
 Commands run in the shell pane of the "show" tmux session, allowing the user to see live output.
+
+#### Following up on a command (agent handle)
+
+`show cmd:` is no longer fire-and-forget. The default human line now ends with
+the tmux pane ID so an agent can inspect what happened:
+
+```bash
+$ show "cmd:cd SKF-2* && claudies"
+Executed: cd SKF-2* && claudies in split (stacked) [pane %11]
+$ tmux capture-pane -p -t %11        # read the pane's output
+```
+
+Agents that intend to act on the result should ask for JSON up front with
+`--format json` (or `SHOW_FORMAT=json`). It emits a single line of structured
+JSON -- no prose scraping:
+
+```bash
+$ show --format json "cmd:cd SKF-2* && claudies"
+{"pane":"%11","session":"main","window":"cora-SKF-92","window_index":0,"pane_index":3,"created":true,"layout":"stacked","status":"alive","cmd":"cd SKF-2* && claudies"}
+```
+
+Fields: `pane` (tmux pane ID), `session`/`window` (full names, not indices),
+`window_index`/`pane_index` (numeric), `created` (`true` if a new pane was
+opened, `false` if an existing one was reused), `layout`, `status`
+(`alive`, `exited:<code>`, or `unknown` -- best-effort), and `cmd` (the
+command as sent). The human line is unchanged apart from the additive
+`[pane %NN]` suffix.
 
 ### Focus specific pane
 
@@ -279,6 +307,7 @@ These mirror `bin/show --help`. The help text is canonical; this table follows i
 | `SHOW_ZOOM`        | `true`        | Zoom pane after showing content (window mode)                |
 | `SHOW_LAYOUT`      | `stacked`     | Layout mode: `right`/`below`/`left`/`above`/`stacked`/`window`. Set to `window` to restore the pre-2.4 default. |
 | `SHOW_SPLIT_SIZE`  | (auto)        | Split pane percentage; overrides direction defaults (70% side, 30% top/bottom) |
+| `SHOW_FORMAT`      | `human`       | `cmd:` output format: `human` (line + `[pane %NN]`) or `json` (one-line handle) |
 
 ## Installation and Running Commands
 
