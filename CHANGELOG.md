@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [2.3.5] - 2026-05-16
+
 ### Added
 
 - **`show cmd:` returns a machine-readable handle (SHOW-92).** The default
