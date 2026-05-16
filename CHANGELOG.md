@@ -6,6 +6,15 @@ All notable changes to show-me will be documented in this file.
 
 ## [3.0.0] - 2026-05-16
 
+### Added
+
+- **Agents are now taught the `cmd:` handle (SHOW-92 follow-up).** The
+  machine-readable handle (`[pane %NN]` suffix and `--format json`) shipped
+  in v2.3.5, but the skills agents load didn't mention it. Added follow-up
+  guidance to both `skills/show/SKILL.md` and `skills/show-me/SKILL.md` so
+  agents know to capture the pane and follow up rather than treating `cmd:`
+  as fire-and-forget. Docs-only; no behaviour change to the binary.
+
 ### Changed
 
 - **BREAKING (SHOW-58): the commands have been renamed.** `show` is now
