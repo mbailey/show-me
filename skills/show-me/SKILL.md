@@ -7,16 +7,21 @@ description: Visual context sharing. LOAD when user says "show me", "open in bro
 
 Display content for users (files, URLs, commands) or observe their screen context.
 
+The plugin ships two top-level commands:
+
+- **`show-me`** — display content for the user (files in Neovim, URLs in a browser, commands in a tmux pane)
+- **`look-at`** — observe what the user is currently viewing (screen context, active panes)
+
 ## Quick Reference
 
 | Command | Example | Description |
 |---------|---------|-------------|
-| `show <file>` | `show README.md:42` | Open file in Neovim at line |
-| `show <file>` | `show main.py:10-20` | Open file highlighting line range |
-| `show <url>` | `show github.com` | Open URL in browser |
-| `show "cmd:..."` | `show "cmd:git log"` | Run command in shell pane |
-| `look` | `look -l 100` | Capture pane with last 100 lines of scrollback |
-| `look -H` | `look -H` | Show tmux hierarchy only |
+| `show-me <file>` | `show-me README.md:42` | Open file in Neovim at line |
+| `show-me <file>` | `show-me main.py:10-20` | Open file highlighting line range |
+| `show-me <url>` | `show-me github.com` | Open URL in browser |
+| `show-me "cmd:..."` | `show-me "cmd:git log"` | Run command in shell pane |
+| `look-at` | `look-at -l 100` | Capture pane with last 100 lines of scrollback |
+| `look-at -H` | `look-at -H` | Show tmux hierarchy only |
 
 ## When to Use
 
@@ -27,7 +32,7 @@ Display content for users (files, URLs, commands) or observe their screen contex
 
 ## Showing URLs - Default Behavior
 
-**URLs go to Chrome MCP by default. The `show` command is a fallback.**
+**URLs go to Chrome MCP by default. The `show-me` command is a fallback.**
 
 ### URL Navigation Decision Tree
 
@@ -36,7 +41,7 @@ User requests URL
     ↓
 Check Chrome MCP available?
     ├─ Yes → navigate tool (interactive)
-    └─ No  → show command (fallback)
+    └─ No  → show-me command (fallback)
 ```
 
 ### Standard Workflow
@@ -46,14 +51,14 @@ Check Chrome MCP available?
    - Inform user: "Opening in Chrome - you may need to approve domain permissions"
    - Use `tabs_create_mcp` + `navigate` tools for interactive control
    - On timeout: "Chrome may be waiting for permission approval. Open in default browser instead?"
-3. **If unavailable**: Use `show` command (opens default browser)
+3. **If unavailable**: Use `show-me` command (opens default browser)
 
 **Chrome MCP provides:**
 - Interactive control (scroll, click, fill forms)
 - Screenshots and page inspection
 - Better for demos and automation
 
-The `show` command is a fallback for when Chrome MCP is unavailable.
+The `show-me` command is a fallback for when Chrome MCP is unavailable.
 
 ## Prefer Line Ranges Over Single Lines
 
@@ -63,39 +68,39 @@ A single line rarely provides enough context. When pointing out a function, a bu
 
 | Instead of | Use |
 |------------|-----|
-| `show main.py:42` | `show main.py:38-55` (show the whole function) |
-| `show config.yaml:10` | `show config.yaml:8-15` (show the relevant block) |
+| `show-me main.py:42` | `show-me main.py:38-55` (show the whole function) |
+| `show-me config.yaml:10` | `show-me config.yaml:8-15` (show the relevant block) |
 
 **Rule of thumb:** If you know the start line, find where the section ends and use a range.
 
 ## Usage
 
-**AI assistants:** Use bare `show` and `look` -- they're on PATH.
+**AI assistants:** Use bare `show-me` and `look-at` -- they're on PATH.
 
-### show - Display Content
+### show-me - Display Content
 
 ```bash
-show README.md                    # Open file (uses user's default layout)
-show src/main.py:42               # Open at line 42
-show src/main.py:10-20            # Open highlighting lines 10-20 (preferred)
-show bin/show#L124-162            # Highlight function (URL fragment syntax)
-show https://github.com/repo      # Open URL
-show "cmd:git status"             # Run command
-show pane:15                      # Focus pane
-show --hold 60 README.md          # Hold focus for 60s (visual conch)
-show --layout right README.md     # Open in split pane to the right
-show --here "cmd:make test"       # Split pane (default direction for type)
-show --format json "cmd:make"     # Run command, get a machine handle back
+show-me README.md                    # Open file (uses user's default layout)
+show-me src/main.py:42               # Open at line 42
+show-me src/main.py:10-20            # Open highlighting lines 10-20 (preferred)
+show-me bin/show-me#L124-162         # Highlight function (URL fragment syntax)
+show-me https://github.com/repo      # Open URL
+show-me "cmd:git status"             # Run command
+show-me pane:15                      # Focus pane
+show-me --hold 60 README.md          # Hold focus for 60s (visual conch)
+show-me --layout right README.md     # Open in split pane to the right
+show-me --here "cmd:make test"       # Split pane (default direction for type)
+show-me --format json "cmd:make"     # Run command, get a machine handle back
 ```
 
-**Layout:** You don't need to specify `--layout` — just call `show <target>`. The user's `SHOW_LAYOUT` env var controls where content appears. In split mode, subsequent file shows reuse the existing Neovim pane.
+**Layout:** You don't need to specify `--layout` — just call `show-me <target>`. The user's `SHOW_LAYOUT` env var controls where content appears. In split mode, subsequent file shows reuse the existing Neovim pane.
 
 **Following up on a `cmd:` you ran.** The default human line ends with
 `[pane %NN]`; `--format json` returns a one-line handle so you can inspect
 the result instead of guessing:
 
 ```bash
-show --format json "cmd:make test"
+show-me --format json "cmd:make test"
 # {"pane":"%37","session":"main","window":"build","created":true,"status":"alive","cmd":"make test"}
 tmux capture-pane -p -t %37        # read the output
 ```
@@ -110,20 +115,20 @@ Prefer `--format json` over scraping prose. Fields: `pane` (handle for
 All four forms are supported for specifying lines:
 
 ```bash
-show file:line                    # Single line
-show file:start-end               # Line range (preferred)
-show file#Lline                   # URL fragment style
-show file#Lstart-end              # URL fragment range
+show-me file:line                    # Single line
+show-me file:start-end               # Line range (preferred)
+show-me file#Lline                   # URL fragment style
+show-me file#Lstart-end              # URL fragment range
 ```
 
-### look - Observe Context
+### look-at - Observe Context
 
 ```bash
-look                              # Current pane
-look -l 100                       # Last 100 lines
-look -H                           # Hierarchy only
-look %15,%16                      # Multiple panes
-look window                       # All panes in window
+look-at                              # Current pane
+look-at -l 100                       # Last 100 lines
+look-at -H                           # Hierarchy only
+look-at %15,%16                      # Multiple panes
+look-at window                       # All panes in window
 ```
 
 ## Documentation
@@ -158,18 +163,18 @@ Chrome requires user approval for new domains (security feature).
 # Call: mcp__claude-in-chrome__tabs_create_mcp (get a new tab)
 # Call: mcp__claude-in-chrome__navigate with the URL and tabId
 
-# Step 3: If not connected or timeout, fall back to show command
-show https://example.com
+# Step 3: If not connected or timeout, fall back to show-me command
+show-me https://example.com
 ```
 
 ### Troubleshooting Chrome MCP
 
 | Issue | Solution |
 |-------|----------|
-| `tabs_context_mcp` fails | Chrome extension not connected; use `show` command |
+| `tabs_context_mcp` fails | Chrome extension not connected; use `show-me` command |
 | Tab ID invalid | Call `tabs_context_mcp` to get fresh tab IDs |
-| Extension disconnected mid-session | Graceful fallback to `show` command |
-| No Chrome MCP tools available | MCP not configured; use `show` command |
+| Extension disconnected mid-session | Graceful fallback to `show-me` command |
+| No Chrome MCP tools available | MCP not configured; use `show-me` command |
 
 ### Setup
 
@@ -178,7 +183,7 @@ To use Chrome MCP:
 2. Open Chrome and click the Claude extension icon
 3. The extension connects to Claude Code via MCP
 
-When the extension is not connected, `tabs_context_mcp` will fail, and you should fall back to the standard `show` command.
+When the extension is not connected, `tabs_context_mcp` will fail, and you should fall back to the standard `show-me` command.
 
 ## Requirements
 

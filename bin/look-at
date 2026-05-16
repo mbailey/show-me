@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -o nounset -o pipefail -o errexit
 
-# look - Observe what the user is currently viewing
+# look-at - Observe what the user is currently viewing
 #
 # Part of the show-me package for visual context sharing
 # between AI assistants and users.
@@ -10,7 +10,7 @@ VERSION="1.0.0"
 
 show_help() {
   cat <<EOF
-Usage: look [OPTIONS] [TARGET]
+Usage: look-at [OPTIONS] [TARGET]
 
 Observe what the user is currently viewing.
 
@@ -29,13 +29,13 @@ Options:
   -V, --version            Show version
 
 Examples:
-  look                      # Current pane content
-  look -H                   # Show tmux hierarchy
-  look %15                  # Specific pane
-  look %15,%16              # Multiple panes
-  look window               # All panes in window
-  look -l 100               # Last 100 lines of history
-  look main:0               # Panes in main session window 0
+  look-at                   # Current pane content
+  look-at -H                # Show tmux hierarchy
+  look-at %15               # Specific pane
+  look-at %15,%16           # Multiple panes
+  look-at window            # All panes in window
+  look-at -l 100            # Last 100 lines of history
+  look-at main:0            # Panes in main session window 0
 
 Output includes:
   - Tmux session/window/pane hierarchy with active indicators
@@ -265,7 +265,7 @@ main() {
         exit 0
         ;;
       -V|--version)
-        echo "look version $VERSION"
+        echo "look-at version $VERSION"
         exit 0
         ;;
       -l|--lines)

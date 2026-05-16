@@ -1,13 +1,13 @@
 # Commands Reference
 
-Full documentation for `show` and `look` commands.
+Full documentation for `show-me` and `look-at` commands.
 
-## show - Display Content
+## show-me - Display Content
 
 Opens content for the user to view in the appropriate application.
 
 ```
-Usage: show <target> [OPTIONS]
+Usage: show-me <target> [OPTIONS]
 
 Targets:
   <file>                   Open file in Neovim
@@ -38,24 +38,24 @@ Options:
   -V, --version            Show version
 ```
 
-> **Source of truth:** `bin/show --help` is canonical. This block mirrors it.
+> **Source of truth:** `bin/show-me --help` is canonical. This block mirrors it.
 > If they drift, the test suite will fail (see `tests/test_show.sh`,
 > "help drift" check).
 
 ### Open files in Neovim
 
 ```bash
-show README.md                    # Open file in Neovim
-show src/main.py:42               # Open at line 42
-show src/main.py:10-30            # Highlight lines 10-30 (preferred for code sections)
-show src/main.py#L42              # Same as :42 (URL fragment style)
-show src/main.py#L10-30           # Same as :10-30 (URL fragment style)
-show ~/Code/project/config.yaml   # Absolute path
+show-me README.md                    # Open file in Neovim
+show-me src/main.py:42               # Open at line 42
+show-me src/main.py:10-30            # Highlight lines 10-30 (preferred for code sections)
+show-me src/main.py#L42              # Same as :42 (URL fragment style)
+show-me src/main.py#L10-30           # Same as :10-30 (URL fragment style)
+show-me ~/Code/project/config.yaml   # Absolute path
 ```
 
 **Tip:** When showing a function, class, or block of code, use a range (`file:start-end`) rather than a single line. This gives the user full context without needing to scroll.
 
-The show command:
+The show-me command:
 - Uses nvim-remote to open files in existing Neovim instances
 - Falls back to starting Neovim in the "show" tmux session
 - Waits up to 3 seconds for Neovim socket to become available
@@ -64,9 +64,9 @@ The show command:
 ### Open URLs in browser
 
 ```bash
-show https://github.com/owner/repo
-show https://docs.python.org/3/library/asyncio.html
-show github.com                   # Auto-adds https://
+show-me https://github.com/owner/repo
+show-me https://docs.python.org/3/library/asyncio.html
+show-me github.com                   # Auto-adds https://
 ```
 
 Opens in Firefox by default (falls back to system default browser).
@@ -74,22 +74,22 @@ Opens in Firefox by default (falls back to system default browser).
 ### Run commands in shell pane
 
 ```bash
-show "cmd:git status"             # Show git status
-show "cmd:git diff HEAD~1"        # Show recent changes
-show "cmd:ls -la"                 # List files
-show "cmd:docker ps"              # Show running containers
-show "cmd:pytest -v"              # Run tests with output
+show-me "cmd:git status"             # Show git status
+show-me "cmd:git diff HEAD~1"        # Show recent changes
+show-me "cmd:ls -la"                 # List files
+show-me "cmd:docker ps"              # Show running containers
+show-me "cmd:pytest -v"              # Run tests with output
 ```
 
 Commands run in the shell pane of the "show" tmux session, allowing the user to see live output.
 
 #### Following up on a command (agent handle)
 
-`show cmd:` is no longer fire-and-forget. The default human line now ends with
+`show-me cmd:` is no longer fire-and-forget. The default human line now ends with
 the tmux pane ID so an agent can inspect what happened:
 
 ```bash
-$ show "cmd:cd SKF-2* && claudies"
+$ show-me "cmd:cd SKF-2* && claudies"
 Executed: cd SKF-2* && claudies in split (stacked) [pane %11]
 $ tmux capture-pane -p -t %11        # read the pane's output
 ```
@@ -99,7 +99,7 @@ Agents that intend to act on the result should ask for JSON up front with
 JSON -- no prose scraping:
 
 ```bash
-$ show --format json "cmd:cd SKF-2* && claudies"
+$ show-me --format json "cmd:cd SKF-2* && claudies"
 {"pane":"%11","session":"main","window":"cora-SKF-92","window_index":0,"pane_index":3,"created":true,"layout":"stacked","status":"alive","cmd":"cd SKF-2* && claudies"}
 ```
 
@@ -113,12 +113,12 @@ command as sent). The human line is unchanged apart from the additive
 ### Focus specific pane
 
 Focus works across tmux sessions -- if the target pane is in a different
-session, show will switch the client to that session automatically.
+session, show-me will switch the client to that session automatically.
 
 ```bash
-show pane:15                      # Focus pane %15 (even in another session)
-show pane:%23                     # With explicit % prefix
-show pane:self                    # Focus agent's own pane (uses $TMUX_PANE)
+show-me pane:15                      # Focus pane %15 (even in another session)
+show-me pane:%23                     # With explicit % prefix
+show-me pane:self                    # Focus agent's own pane (uses $TMUX_PANE)
 ```
 
 The `pane:self` target is useful for multi-agent workflows where an agent
@@ -131,26 +131,26 @@ away for the specified duration. This prevents the speaking agent from
 yanking the user back before they've read what was shown.
 
 ```bash
-show --hold 60 README.md          # Hold focus for 60s (long document)
-show --hold 10 output.log         # Quick glance, 10s hold
-show README.md                    # Default 30s hold
+show-me --hold 60 README.md          # Hold focus for 60s (long document)
+show-me --hold 10 output.log         # Quick glance, 10s hold
+show-me README.md                    # Default 30s hold
 ```
 
 ### Layouts
 
-`show` opens content in a **stacked** layout by default since 2.4.0 — a
+`show-me` opens content in a **stacked** layout by default since 2.4.0 — a
 leader pane on the left, content panes accumulating to the right. File shows
 reuse the existing Neovim pane; `cmd:` shows create a new pane each call. The
 `--layout` flag (or `SHOW_LAYOUT` env var) selects a different layout.
 
 ```bash
-show README.md                    # Default: stacked split (reuses nvim)
-show --layout right README.md     # Right split (70% wide by default)
-show --layout below "cmd:make"    # Bottom split (30% tall by default)
-show --layout left  README.md     # Left split
-show --layout above "cmd:date"    # Top split
-show --layout window README.md    # Pre-2.4 default: separate "show" window
-show --here README.md             # Shorthand: right for files, below for commands
+show-me README.md                    # Default: stacked split (reuses nvim)
+show-me --layout right README.md     # Right split (70% wide by default)
+show-me --layout below "cmd:make"    # Bottom split (30% tall by default)
+show-me --layout left  README.md     # Left split
+show-me --layout above "cmd:date"    # Top split
+show-me --layout window README.md    # Pre-2.4 default: separate "show" window
+show-me --here README.md             # Shorthand: right for files, below for commands
 ```
 
 `SHOW_SPLIT_SIZE=40` overrides the size default. Set `SHOW_LAYOUT=window` to
@@ -164,11 +164,11 @@ nvim-reuse semantics, when to pick which).
 Requires the [`sindrets/diffview.nvim`](https://github.com/sindrets/diffview.nvim) plugin.
 
 ```bash
-show diff                         # Unstaged changes
-show diff:main                    # Diff vs main branch
-show diff:HEAD~3                  # Last 3 commits
-show "diff:main -- src/"          # Scoped to src/
-show "diff:main..feature"         # Range diff
+show-me diff                         # Unstaged changes
+show-me diff:main                    # Diff vs main branch
+show-me diff:HEAD~3                  # Last 3 commits
+show-me "diff:main -- src/"          # Scoped to src/
+show-me "diff:main..feature"         # Range diff
 ```
 
 DiffView opens in a Neovim instance scoped to the git repo root.
@@ -176,20 +176,20 @@ DiffView opens in a Neovim instance scoped to the git repo root.
 ### Advanced options
 
 ```bash
-show file.py -s dev               # Use "dev" session instead of "show"
-show file.py -w editor            # Use "editor" window instead of "show"
-show file.py -p %36               # Open in specific pane
-show --no-focus file.py           # Open without switching focus
-show --no-zoom file.py            # Open without zooming pane
-show --no-attach file.py          # Don't auto-attach if no clients
+show-me file.py -s dev               # Use "dev" session instead of "show"
+show-me file.py -w editor            # Use "editor" window instead of "show"
+show-me file.py -p %36               # Open in specific pane
+show-me --no-focus file.py           # Open without switching focus
+show-me --no-zoom file.py            # Open without zooming pane
+show-me --no-attach file.py          # Don't auto-attach if no clients
 ```
 
-## look - Observe Context
+## look-at - Observe Context
 
 Captures what the user is currently viewing with tmux hierarchy and pane content.
 
 ```
-Usage: look [OPTIONS] [TARGET]
+Usage: look-at [OPTIONS] [TARGET]
 
 Targets:
   (none)                   Current pane content
@@ -207,15 +207,15 @@ Options:
 ### Basic observation
 
 ```bash
-look                              # Current pane - visible screen
-look -l 100                       # Last 100 lines of scrollback
-look -l 500                       # More history for long output
+look-at                              # Current pane - visible screen
+look-at -l 100                       # Last 100 lines of scrollback
+look-at -l 500                       # More history for long output
 ```
 
 ### View tmux hierarchy only
 
 ```bash
-look -H
+look-at -H
 ```
 
 Output example:
@@ -234,21 +234,21 @@ Legend:
 ### Multiple panes
 
 ```bash
-look %15,%16                      # Two specific panes
-look window                       # All panes in current window
-look main:0                       # All panes in main session window 0
+look-at %15,%16                      # Two specific panes
+look-at window                       # All panes in current window
+look-at main:0                       # All panes in main session window 0
 ```
 
 ### Preserve formatting
 
 ```bash
-look -p                           # Keep exact blank line spacing
-look -p -l 50                     # With scrollback
+look-at -p                           # Keep exact blank line spacing
+look-at -p -l 50                     # With scrollback
 ```
 
 ### Output Format
 
-The `look` command provides structured output:
+The `look-at` command provides structured output:
 
 ```
 Tmux summary:
@@ -268,7 +268,7 @@ Tip: Use nvim-remote for full editor control
 
 ## Sensitive Content Detection
 
-The `look` command automatically scans captured content for potentially sensitive information:
+The `look-at` command automatically scans captured content for potentially sensitive information:
 
 ### Detected patterns
 
@@ -280,7 +280,7 @@ The `look` command automatically scans captured content for potentially sensitiv
 
 ### Warning output
 
-When sensitive content is detected, look adds a warning:
+When sensitive content is detected, look-at adds a warning:
 
 ```
 Warning: Potential sensitive information detected
@@ -290,12 +290,12 @@ Consider reviewing before sharing. Use -H to show hierarchy only without content
 ### Best practices
 
 - Review output before sharing in logs or conversations
-- Use `look -H` to get hierarchy without content when sensitive data may be present
+- Use `look-at -H` to get hierarchy without content when sensitive data may be present
 - Be aware that terminal history may contain secrets from previous commands
 
 ## Environment Variables
 
-These mirror `bin/show --help`. The help text is canonical; this table follows it.
+These mirror `bin/show-me --help`. The help text is canonical; this table follows it.
 
 | Variable           | Default       | Description                                                  |
 | ------------------ | ------------- | ------------------------------------------------------------ |
@@ -313,21 +313,19 @@ These mirror `bin/show --help`. The help text is canonical; this table follows i
 
 ### Finding the Commands
 
-In normal use, `show` and `look` are on PATH and you call them as bare commands:
+In normal use, `show-me` and `look-at` are on PATH and you call them as bare commands:
 
 ```bash
-show <target>
-look [options]
+show-me <target>
+look-at [options]
 ```
 
 This works whether installed as a Claude Code plugin (which auto-adds `bin/` to the Bash tool's PATH) or via metool (which symlinks into `~/.metool/bin/`).
 
-**Note:** The system has a `look` command (dictionary lookup) that may shadow this package's `look`. If `which look` resolves to `/usr/bin/look`, use the full path or reorder PATH.
-
 ### Checking Installation
 
 ```bash
-which show look                                    # Check if in PATH
-ls ~/.metool/bin/show ~/.metool/bin/look          # Check metool
-ls ${CLAUDE_PLUGIN_ROOT}/bin/show                 # Check plugin (from inside Claude Code Bash tool)
+which show-me look-at                                 # Check if in PATH
+ls ~/.metool/bin/show-me ~/.metool/bin/look-at        # Check metool
+ls ${CLAUDE_PLUGIN_ROOT}/bin/show-me                  # Check plugin (from inside Claude Code Bash tool)
 ```
