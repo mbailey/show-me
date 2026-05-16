@@ -19,8 +19,25 @@ Display content for the user in the appropriate application.
 **Options:**
 - `--layout VALUE` — Where to show content. Values: `right`, `below`, `left`, `above`, `window`, `stacked`
 - `--here` — Show in a split pane beside the conversation (shorthand for content-type default direction)
+- `--format VALUE` — `cmd:` output format: `human` (default) or `json`. Use `json` when **you** (the agent) ran the command and intend to act on the result.
 - `--hold SECONDS` — Hold visual focus for N seconds (default: 30). Prevents VoiceMode auto-focus from switching away while the user reads.
 - `--no-zoom` — Don't zoom the pane after showing (useful in split mode)
+
+**Following up on a `cmd:` you ran (agent).** `cmd:` is no longer
+fire-and-forget. The default human line now ends with `[pane %NN]`, and
+`--format json` gives you a machine handle so you can inspect what happened:
+
+```bash
+show --format json "cmd:make test"
+# {"pane":"%37","session":"main","window":"build","created":true,"status":"alive","cmd":"make test"}
+tmux capture-pane -p -t %37        # read the command's output
+```
+
+JSON fields: `pane` (tmux ID — the handle for `tmux capture-pane`/`send-keys`),
+`session`/`window` (full names), `created` (`true` new pane / `false` reused),
+`status` (`alive` / `exited:<code>` / `unknown`), `cmd`. Prefer `--format json`
+over scraping the human line. (Note: in `--layout window`, the *first* call
+also prints a `Created window:` line before the JSON — read the last line.)
 
 **Layout:** You don't need to specify `--layout` — the user's `SHOW_LAYOUT` env var controls the default. Just call `show <target>` and the right thing happens. Override with `--layout` only when you have a reason to.
 

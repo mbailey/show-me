@@ -85,9 +85,25 @@ show pane:15                      # Focus pane
 show --hold 60 README.md          # Hold focus for 60s (visual conch)
 show --layout right README.md     # Open in split pane to the right
 show --here "cmd:make test"       # Split pane (default direction for type)
+show --format json "cmd:make"     # Run command, get a machine handle back
 ```
 
 **Layout:** You don't need to specify `--layout` — just call `show <target>`. The user's `SHOW_LAYOUT` env var controls where content appears. In split mode, subsequent file shows reuse the existing Neovim pane.
+
+**Following up on a `cmd:` you ran.** The default human line ends with
+`[pane %NN]`; `--format json` returns a one-line handle so you can inspect
+the result instead of guessing:
+
+```bash
+show --format json "cmd:make test"
+# {"pane":"%37","session":"main","window":"build","created":true,"status":"alive","cmd":"make test"}
+tmux capture-pane -p -t %37        # read the output
+```
+
+Prefer `--format json` over scraping prose. Fields: `pane` (handle for
+`tmux capture-pane`/`send-keys`), `session`/`window` (full names),
+`created` (new vs reused), `status` (`alive`/`exited:<code>`/`unknown`),
+`cmd`. See `docs/commands.md` for the full reference.
 
 ### File Syntax Variants
 
