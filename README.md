@@ -3,19 +3,19 @@
 Visual context sharing between AI assistants and users.
 
 Like Morpheus to Neo — "show me":
-- **show**: AI displays content for the user (files in Neovim, URLs in browser, commands in tmux)
-- **look**: AI observes what the user is viewing (screen context, active panes)
+- **show-me**: AI displays content for the user (files in Neovim, URLs in browser, commands in tmux)
+- **look-at**: AI observes what the user is viewing (screen context, active panes)
 
-These are complementary - look verifies what show displayed.
+These are complementary - `look-at` verifies what `show-me` displayed.
 
 ## Requirements
 
 ### Required
 
 - **tmux** - Terminal multiplexer for pane management and context capture
-  - Used by both `show` and `look` commands
-  - `show` creates a dedicated "show" session for content display
-  - `look` captures pane content and displays hierarchy
+  - Used by both `show-me` and `look-at` commands
+  - `show-me` creates a dedicated "show" session for content display
+  - `look-at` captures pane content and displays hierarchy
 
 ### Optional Enhancements
 
@@ -26,10 +26,11 @@ These are complementary - look verifies what show displayed.
 
 - **Browser** - For URL display (Firefox preferred, configurable via SHOW_BROWSER)
 
-> **Heads-up:** macOS / many Linux distros ship a system `look` command (dictionary
-> lookup) that may shadow this package's `look`. If `which look` resolves to
-> `/usr/bin/look`, reorder PATH or call `look` via its plugin/metool path.
-> See [`docs/troubleshooting.md`](docs/troubleshooting.md).
+> **Renamed in SHOW-58:** the commands are now `show-me` and `look-at` (was
+> `show` / `look`). The old names clashed with system binaries — `look` was
+> silently shadowed by util-linux's dictionary `look`. The namespaced names
+> have no such clash. Calling the old `show` now prints a migration error and
+> exits non-zero; `look` is removed. See [`docs/troubleshooting.md`](docs/troubleshooting.md).
 
 ## Installation
 
@@ -58,46 +59,46 @@ mt package install show-me
 
 ## Commands
 
-### show
+### show-me
 
 Display content for the user:
 
 ```bash
-show path/to/file.py          # Open file in Neovim
-show path/to/file.py:42       # Open file at line 42
-show path/to/file.py:10-30    # Highlight lines 10-30 (preferred for code)
-show path/to/file.py#L42      # URL-fragment style (same as :42)
-show https://example.com      # Open URL in browser
-show "cmd:git status"         # Run command in shell pane
-show diff                     # DiffView of unstaged changes
-show diff:main                # DiffView vs main branch
-show "diff:main -- src/"      # DiffView vs main, scoped to src/
-show pane:%23                 # Focus tmux pane (cross-session)
-show pane:self                # Focus your own pane (agent self-focus)
+show-me path/to/file.py          # Open file in Neovim
+show-me path/to/file.py:42       # Open file at line 42
+show-me path/to/file.py:10-30    # Highlight lines 10-30 (preferred for code)
+show-me path/to/file.py#L42      # URL-fragment style (same as :42)
+show-me https://example.com      # Open URL in browser
+show-me "cmd:git status"         # Run command in shell pane
+show-me diff                     # DiffView of unstaged changes
+show-me diff:main                # DiffView vs main branch
+show-me "diff:main -- src/"      # DiffView vs main, scoped to src/
+show-me pane:%23                 # Focus tmux pane (cross-session)
+show-me pane:self                # Focus your own pane (agent self-focus)
 ```
 
-### look
+### look-at
 
 Observe what the user is viewing:
 
 ```bash
-look                          # Capture current pane context
-look --hierarchy              # Show tmux session/window/pane layout
+look-at                          # Capture current pane context
+look-at --hierarchy              # Show tmux session/window/pane layout
 ```
 
 ### Layouts
 
-By default, `show` opens content in a separate "show" window. `--layout` (or
+By default, `show-me` opens content in a separate "show" window. `--layout` (or
 `SHOW_LAYOUT`) routes it into a split pane in the current window instead:
 
 ```bash
-show --layout right README.md     # Split right (70% wide)
-show --layout below "cmd:make"    # Split below (30% tall)
-show --layout left  README.md     # Split left
-show --layout above "cmd:date"    # Split above
-show --layout stacked "cmd:claude" # Stacked split — accumulate panes (great for teammate-style)
-show --layout window README.md    # Default — separate "show" window
-show --here README.md             # Shorthand: right for files, below for commands
+show-me --layout right README.md     # Split right (70% wide)
+show-me --layout below "cmd:make"    # Split below (30% tall)
+show-me --layout left  README.md     # Split left
+show-me --layout above "cmd:date"    # Split above
+show-me --layout stacked "cmd:claude" # Stacked split — accumulate panes (great for teammate-style)
+show-me --layout window README.md    # Default — separate "show" window
+show-me --here README.md             # Shorthand: right for files, below for commands
 ```
 
 `SHOW_SPLIT_SIZE=40` overrides the direction default (e.g. `40` means 40%).
@@ -118,7 +119,7 @@ Environment variables (defaults shown):
 | `SHOW_AUTO_ATTACH` | `true`        | Auto-attach the terminal if no tmux client is attached |
 
 For the full reference (every option, every flag), see [`docs/commands.md`](docs/commands.md)
-or run `show --help`.
+or run `show-me --help`.
 
 ## Optional Integrations
 
@@ -127,7 +128,7 @@ or run `show --help`.
 If nvim-remote is available, show-me uses it for enhanced features:
 
 - **Auto socket detection**: Finds the best Neovim socket automatically
-- **Richer status**: More detailed editor state in `look` output
+- **Richer status**: More detailed editor state in `look-at` output
 
 Without nvim-remote, show-me:
 - Uses calculated socket paths: `/tmp/nvim-tmux-pane-<pane_id>`
@@ -136,20 +137,20 @@ Without nvim-remote, show-me:
 
 ## Privacy
 
-The `look` command captures screen content. Use responsibly and only when contextually appropriate.
+The `look-at` command captures screen content. Use responsibly and only when contextually appropriate.
 
 ## Why not just a tmux skill?
 
-Most of what `show` does today is implemented with tmux, so it's natural to
+Most of what `show-me` does today is implemented with tmux, so it's natural to
 ask whether this should just be a tmux skill that agents drive directly.
-We chose `show` as the user-facing verb on purpose:
+We chose `show-me` as the user-facing verb on purpose:
 
 - **It captures user intent, not implementation.** "Show me this thing" is
   the verb the user actually means. Whether the thing lands in tmux,
   Neovim, or a browser tab is incidental and may change.
-- **It's a deliberately narrow safety surface.** `show` accepts a small
+- **It's a deliberately narrow safety surface.** `show-me` accepts a small
   set of targets — file, URL, `cmd:`, `pane:`, `diff` — and rejects
-  everything else. Granting an agent permission to run `show` is
+  everything else. Granting an agent permission to run `show-me` is
   meaningfully narrower than granting it raw tmux access (which can
   send keys to any pane, kill sessions, run arbitrary commands).
 - **It spans multiple backends.** URLs go to a browser, files go to

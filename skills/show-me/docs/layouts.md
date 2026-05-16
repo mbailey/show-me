@@ -1,11 +1,11 @@
 # Layouts
 
-Reference for every `show` layout option, what it does, and when to pick it.
+Reference for every `show-me` layout option, what it does, and when to pick it.
 
 ## Default
 
 Since version 2.4.0, the default layout is **`stacked`**. With no `--layout`
-flag and no `SHOW_LAYOUT` env var, `show` opens content as a stacked split in
+flag and no `SHOW_LAYOUT` env var, `show-me` opens content as a stacked split in
 the current tmux window.
 
 To restore the pre-2.4 behavior (separate "show" window), set:
@@ -29,11 +29,11 @@ export SHOW_LAYOUT=window
 
 Notes:
 
-- "nvim reuse for files" means a second `show file.md` lands the new buffer in
+- "nvim reuse for files" means a second `show-me file.md` lands the new buffer in
   the existing nvim pane rather than creating a fresh one. This is what makes
   the "show me X then show me Y replaces X" workflow work.
 - "New pane per `cmd:`" is the teammate-accumulation behavior: each
-  `show cmd:foo` creates its own pane so output history is preserved.
+  `show-me cmd:foo` creates its own pane so output history is preserved.
 - `stacked` is the only layout where files and commands behave differently
   (files reuse, commands accumulate). The others either reuse for everything
   (`right`/`below`/`left`/`above`) or use the separate show window for
@@ -54,21 +54,21 @@ Example:
 
 ```bash
 # Built-in default
-show README.md                       # stacked split, reuses nvim
+show-me README.md                    # stacked split, reuses nvim
 
 # Shell-wide default
 export SHOW_LAYOUT=right
-show README.md                       # right split
+show-me README.md                    # right split
 
 # Per-invocation override
-show --layout below README.md        # below split, ignores env var
+show-me --layout below README.md     # below split, ignores env var
 
 # --here shorthand
-show --here README.md                # right (because it's a file)
-show --here cmd:make                 # below (because it's a command)
+show-me --here README.md             # right (because it's a file)
+show-me --here cmd:make              # below (because it's a command)
 
 # Escape hatch to pre-2.4 behavior
-SHOW_LAYOUT=window show README.md    # separate "show" window
+SHOW_LAYOUT=window show-me README.md # separate "show" window
 ```
 
 ## Split size
@@ -82,8 +82,8 @@ percentage:
 
 ## See also
 
-- [`commands.md`](commands.md) — full command reference, including `look`
-- [`troubleshooting.md`](troubleshooting.md) — common issues (system `look`
-  command, tmux not running, etc.)
-- Source: [`bin/show`](../bin/show), function `validate_layout` and the
+- [`commands.md`](commands.md) — full command reference, including `look-at`
+- [`troubleshooting.md`](troubleshooting.md) — common issues (tmux not
+  running, Neovim socket, etc.)
+- Source: [`bin/show-me`](../bin/show-me), function `validate_layout` and the
   `handle_file` / `handle_command` / `handle_diff` dispatchers

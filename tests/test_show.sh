@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for the show command
+# Tests for the show-me command
 # Run: make test
 
 set -euo pipefail
@@ -23,7 +23,7 @@ if ! command -v tmux >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Testing show command"
+echo "Testing show-me command"
 echo "===================="
 
 # --- Argument parsing ---
@@ -55,9 +55,9 @@ echo ""
 echo "URL detection:"
 
 if [[ -x "$SHOW" ]]; then
-  pass "show command is executable"
+  pass "show-me command is executable"
 else
-  fail "show command is executable"
+  fail "show-me command is executable"
 fi
 
 # --- Target classification (URL vs file) ---
@@ -123,13 +123,13 @@ expect_classify "app.js" FILE
 
 # --- Look command ---
 echo ""
-echo "Testing look command"
+echo "Testing look-at command"
 echo "===================="
 
 if [[ -x "$LOOK" ]]; then
-  pass "look command is executable"
+  pass "look-at command is executable"
 else
-  fail "look command is executable"
+  fail "look-at command is executable"
 fi
 
 if "$LOOK" --help 2>&1 | grep -q "Usage\|look"; then
@@ -188,16 +188,24 @@ fi
 echo ""
 echo "Plugin structure:"
 
-if [[ -f "${SCRIPT_DIR}/../skills/show/SKILL.md" ]]; then
-  pass "skills/show/SKILL.md exists"
+# SHOW-58: skills/show retired (folded into the show-me skill); skills/look
+# renamed to skills/look-at. The plugin ships exactly two skills: show-me + look-at.
+if [[ ! -e "${SCRIPT_DIR}/../skills/show" ]]; then
+  pass "skills/show retired (renamed: show-me command lives in skills/show-me)"
 else
-  fail "skills/show/SKILL.md exists"
+  fail "skills/show still exists (should be retired by SHOW-58)"
 fi
 
-if [[ -f "${SCRIPT_DIR}/../skills/look/SKILL.md" ]]; then
-  pass "skills/look/SKILL.md exists"
+if [[ ! -e "${SCRIPT_DIR}/../skills/look" ]]; then
+  pass "skills/look removed (renamed to skills/look-at)"
 else
-  fail "skills/look/SKILL.md exists"
+  fail "skills/look still exists (should be renamed to skills/look-at)"
+fi
+
+if [[ -f "${SCRIPT_DIR}/../skills/look-at/SKILL.md" ]]; then
+  pass "skills/look-at/SKILL.md exists"
+else
+  fail "skills/look-at/SKILL.md exists"
 fi
 
 if [[ -f "${SCRIPT_DIR}/../skills/show-me/SKILL.md" ]]; then
@@ -212,16 +220,36 @@ else
   fail "commands/ directory still exists (should be migrated to skills)"
 fi
 
-if grep -q "name:" "${SCRIPT_DIR}/../skills/show/SKILL.md" 2>/dev/null; then
-  pass "show skill has name frontmatter"
+if grep -qE "^name:[[:space:]]*show-me[[:space:]]*$" "${SCRIPT_DIR}/../skills/show-me/SKILL.md" 2>/dev/null; then
+  pass "show-me skill frontmatter name is 'show-me'"
 else
-  fail "show skill has name frontmatter"
+  fail "show-me skill frontmatter name is 'show-me'"
 fi
 
-if grep -q "description:" "${SCRIPT_DIR}/../skills/show/SKILL.md" 2>/dev/null; then
-  pass "show skill has description frontmatter"
+if grep -qE "^name:[[:space:]]*look-at[[:space:]]*$" "${SCRIPT_DIR}/../skills/look-at/SKILL.md" 2>/dev/null; then
+  pass "look-at skill frontmatter name is 'look-at'"
 else
-  fail "show skill has description frontmatter"
+  fail "look-at skill frontmatter name is 'look-at'"
+fi
+
+if grep -q "^description:" "${SCRIPT_DIR}/../skills/show-me/SKILL.md" 2>/dev/null \
+   && grep -q "^description:" "${SCRIPT_DIR}/../skills/look-at/SKILL.md" 2>/dev/null; then
+  pass "show-me and look-at skills have description frontmatter"
+else
+  fail "show-me and look-at skills have description frontmatter"
+fi
+
+# No bare `show `/`look ` invocations remain in skills/docs (SHOW-58 acceptance).
+# Match command-position usage: start-of-codeblock-line or after "AI: ".
+if ! grep -rnE '(^|`|\$ |AI: )(show|look)( |$)' \
+     "${SCRIPT_DIR}/../skills" "${SCRIPT_DIR}/../README.md" 2>/dev/null \
+     | grep -vE 'show-me|look-at' | grep -q .; then
+  pass "no bare 'show '/'look ' invocations in skills/ or README"
+else
+  fail "bare 'show '/'look ' invocation found (should be show-me/look-at)"
+  grep -rnE '(^|`|\$ |AI: )(show|look)( |$)' \
+     "${SCRIPT_DIR}/../skills" "${SCRIPT_DIR}/../README.md" 2>/dev/null \
+     | grep -vE 'show-me|look-at' || true
 fi
 
 # --- Layout validation ---
