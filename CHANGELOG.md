@@ -4,6 +4,47 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-05-16
+
+### Changed
+
+- **BREAKING (SHOW-58): the commands have been renamed.** `show` is now
+  **`show-me`** and `look` is now **`look-at`**. The plugin is still named
+  `show-me` and still ships exactly two skills (`show-me` and `look-at`),
+  which can each be enabled/disabled independently. This is a deliberate
+  major version bump (SemVer): every `show <target>` invocation must become
+  `show-me <target>`, and every `look [options]` must become
+  `look-at [options]`. Flags, layouts, env vars (`SHOW_*`), and behaviour
+  are otherwise unchanged -- only the command names differ.
+
+  **Why:** `look` was *silently broken* -- homebrew util-linux ships
+  `/opt/homebrew/.../bin/look` earlier in PATH, so agents calling `look`
+  got dictionary output with no error. `show` squats a generic verb and is
+  a latent future-clash risk. `show-me` / `look-at` are both clash-free and
+  mirror the plugin name.
+
+  **Migration:**
+  - Replace `show ...` -> `show-me ...` and `look ...` -> `look-at ...` in
+    your scripts, skills, aliases, and docs.
+  - `bin/show` is **kept temporarily as a loud error stub**: it prints a
+    message pointing at `show-me` and exits non-zero (127). It does **not**
+    silently delegate -- stale callers fail loudly and obviously instead of
+    getting wrong behaviour. This stub is a migration aid and will be
+    removed in a future release; do not depend on it.
+  - `bin/look` is **removed outright** -- it was already shadowed by system
+    `look`, so an error stub there would never execute.
+
+  **Rollout coordination:** the taskmaster skill spawns workers via
+  `show --layout stacked cmd:'tm task work TASK-ID'`. After this rename
+  that invocation hits the `show` error stub and task workers break.
+  Updating taskmaster to call `show-me` is tracked as the linked
+  follow-up **TM-844** and must land before or together with this release.
+
+### Removed
+
+- **`bin/look` deleted (SHOW-58).** Use `look-at` instead. (It was already
+  non-functional in practice -- shadowed by homebrew/system `look` on PATH.)
+
 ## [2.3.5] - 2026-05-16
 
 ### Added
