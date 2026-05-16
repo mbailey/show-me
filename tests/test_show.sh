@@ -5,8 +5,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SHOW="${SCRIPT_DIR}/../bin/show"
-LOOK="${SCRIPT_DIR}/../bin/look"
+SHOW="${SCRIPT_DIR}/../bin/show-me"
+LOOK="${SCRIPT_DIR}/../bin/look-at"
+SHOW_STUB="${SCRIPT_DIR}/../bin/show"
 
 PASS=0
 FAIL=0
@@ -147,6 +148,40 @@ if [[ -n "${TMUX:-}" ]]; then
   fi
 else
   skip "-H hierarchy (not in tmux)"
+fi
+
+# --- Migration stub (SHOW-58) ---
+# bin/show was renamed to bin/show-me. The old name is kept ONLY as a loud,
+# non-zero error stub pointing users to show-me -- it must NOT delegate.
+echo ""
+echo "Migration stub (SHOW-58):"
+
+if [[ -x "$SHOW_STUB" ]]; then
+  pass "bin/show stub is executable"
+else
+  fail "bin/show stub is executable"
+fi
+
+stub_out=$("$SHOW_STUB" README.md 2>&1) || stub_rc=$?
+stub_rc=${stub_rc:-0}
+if [[ "$stub_rc" -ne 0 ]]; then
+  pass "bin/show stub exits non-zero (got: $stub_rc)"
+else
+  fail "bin/show stub exits non-zero (got: $stub_rc)"
+fi
+
+if grep -qi "renamed to .show-me\|show-me <target>" <<<"$stub_out"; then
+  pass "bin/show stub points users to show-me"
+else
+  fail "bin/show stub points users to show-me (got: $stub_out)"
+fi
+
+# Must NOT silently delegate: a real `show README.md` would try tmux/nvim
+# and emit show-me's output. The stub must not produce that.
+if ! grep -qi "Focused pane\|Opening\|tmux is required for show-me" <<<"$stub_out"; then
+  pass "bin/show stub does not delegate to show-me"
+else
+  fail "bin/show stub does not delegate to show-me (got: $stub_out)"
 fi
 
 # --- Skills structure ---
@@ -383,16 +418,16 @@ if [[ -f "$manifest_file" ]] && command -v jq >/dev/null 2>&1; then
   bin_version=$("$SHOW" --version 2>/dev/null | awk '{print $NF}')
   manifest_version=$(jq -r .version "$manifest_file")
   if [[ "$bin_version" == "$manifest_version" ]]; then
-    pass "bin/show VERSION matches plugin.json (${bin_version})"
+    pass "bin/show-me VERSION matches plugin.json (${bin_version})"
   else
-    fail "VERSION drift: bin/show=${bin_version}, plugin.json=${manifest_version}"
+    fail "VERSION drift: bin/show-me=${bin_version}, plugin.json=${manifest_version}"
   fi
 else
   skip "version drift check (jq or plugin.json missing)"
 fi
 
 # --- docs/commands.md env-var drift check ---
-# Every SHOW_* env var documented in `bin/show --help` should be in
+# Every SHOW_* env var documented in `bin/show-me --help` should be in
 # docs/commands.md, and vice versa. Catches the kind of drift the
 # 2026-05-10 review found (SHOW_LAYOUT/SHOW_AUTO_ATTACH absent from docs).
 echo ""
@@ -414,7 +449,7 @@ if [[ -f "$commands_doc" ]]; then
   only_in_doc=$(comm -13 <(echo "$help_vars") <(echo "$doc_vars"))
 
   if [[ -z "$only_in_help" && -z "$only_in_doc" ]]; then
-    pass "docs/commands.md SHOW_* env vars match bin/show --help"
+    pass "docs/commands.md SHOW_* env vars match bin/show-me --help"
   else
     msg="docs/commands.md drift vs --help:"
     [[ -n "$only_in_help" ]] && msg+=" missing in docs: $(echo "$only_in_help" | tr '\n' ' ')"

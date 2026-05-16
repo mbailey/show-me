@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # release - Atomic version bump + release for show-me
 #
-# Bumps version in BOTH bin/show (VERSION="X.Y.Z") and .claude-plugin/plugin.json
+# Bumps version in BOTH bin/show-me (VERSION="X.Y.Z") and .claude-plugin/plugin.json
 # (.version) in a single commit, then tags and pushes. Prevents the drift bug
 # fixed in SHOW-64 from reoccurring.
 #
@@ -14,7 +14,7 @@
 #   bin/release --dry-run 2.4.0  # update files, skip git ops (for testing)
 #   bin/release --allow-empty patch  # release even if [Unreleased] is empty
 #
-# Contract: do NOT edit VERSION in bin/show or .version in plugin.json by hand.
+# Contract: do NOT edit VERSION in bin/show-me or .version in plugin.json by hand.
 # This script is the single source of truth for bumping both.
 
 set -o nounset -o pipefail -o errexit
@@ -42,7 +42,7 @@ ARG="${1:-}"
 # Resolve repo root (parent of bin/)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
-SHOW_BIN="$REPO_ROOT/bin/show"
+SHOW_BIN="$REPO_ROOT/bin/show-me"
 CHANGELOG="$REPO_ROOT/CHANGELOG.md"
 
 for f in "$PLUGIN_JSON" "$SHOW_BIN"; do
@@ -155,7 +155,7 @@ jq --arg v "$NEW" '.version = $v' "$PLUGIN_JSON" > "$tmp"
 mv "$tmp" "$PLUGIN_JSON"
 echo "  updated $PLUGIN_JSON"
 
-# 2. bin/show -- portable sed (BSD on macOS, GNU on linux, also handles
+# 2. bin/show-me -- portable sed (BSD on macOS, GNU on linux, also handles
 # homebrew gnu-sed shadowing /usr/bin/sed on macOS). Write to temp file then
 # mv -- avoids the -i '' vs -i incantation entirely.
 tmp_show="$(mktemp)"

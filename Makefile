@@ -7,7 +7,7 @@ help:
 	@echo "  test                       Run tests"
 	@echo "  lint                       Run shellcheck on bin/ and tests/"
 	@echo "  release BUMP=patch|minor|major|X.Y.Z"
-	@echo "                             Atomically bump version in bin/show + plugin.json,"
+	@echo "                             Atomically bump version in bin/show-me + plugin.json,"
 	@echo "                             update CHANGELOG, commit, tag, push (default: patch)"
 	@echo "  help                       Show this help"
 
@@ -19,13 +19,13 @@ test:
 lint:
 	@if command -v shellcheck >/dev/null 2>&1; then \
 		echo "Running shellcheck..."; \
-		shellcheck bin/show bin/look bin/release tests/test_show.sh; \
+		shellcheck bin/show-me bin/look-at bin/show bin/release tests/test_show.sh; \
 		echo "shellcheck: clean"; \
 	else \
 		echo "shellcheck not installed — skipping (install with 'brew install shellcheck')"; \
 	fi
 
-# Atomic version bump: updates VERSION in bin/show AND .version in plugin.json
+# Atomic version bump: updates VERSION in bin/show-me AND .version in plugin.json
 # in a single commit. See RELEASING.md.
 release:
 	@bash bin/release $(or $(BUMP),patch)
