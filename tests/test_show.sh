@@ -358,6 +358,185 @@ else
   fail "handle_diff: stacked-skip guard missing (diffs would hijack reused nvim — SHOW-62 regression)"
 fi
 
+# --- restack_layout() extraction (SHOW-98 impl-001) ---
+echo ""
+echo "restack_layout extraction (SHOW-98):"
+
+# restack_layout() must exist as a reusable function.
+if grep -q '^restack_layout() {' "$SHOW"; then
+  pass "restack_layout(): function defined"
+else
+  fail "restack_layout(): function not defined"
+fi
+
+# create_stacked_pane() must delegate to restack_layout() and no longer inline
+# the select-layout / resize-pane tmux calls (no duplicated tmux commands).
+csp_block=$(awk '/^create_stacked_pane\(\) \{/,/^}/' "$SHOW")
+if grep -q 'restack_layout "\$window_id" "\$leader_pane" stacked' <<<"$csp_block"; then
+  pass "create_stacked_pane(): delegates to restack_layout()"
+else
+  fail "create_stacked_pane(): does not call restack_layout()"
+fi
+if grep -q 'select-layout .* main-vertical' <<<"$csp_block"; then
+  fail "create_stacked_pane(): still inlines select-layout (duplicated tmux call)"
+else
+  pass "create_stacked_pane(): rebalance no longer inlined"
+fi
+
+# The extracted function must hold the stacked rebalance logic.
+rl_block=$(awk '/^restack_layout\(\) \{/,/^}/' "$SHOW")
+if grep -q 'select-layout .* main-vertical' <<<"$rl_block" \
+   && grep -q 'resize-pane .* -x 30%' <<<"$rl_block"; then
+  pass "restack_layout(): holds stacked rebalance (main-vertical + leader 30%)"
+else
+  fail "restack_layout(): missing stacked rebalance logic"
+fi
+
+# --- --restack flag (SHOW-98 impl-002) ---
+echo ""
+echo "--restack flag (SHOW-98 impl-002):"
+
+# do_restack() handler must exist as a reusable function.
+if grep -q '^do_restack() {' "$SHOW"; then
+  pass "do_restack(): function defined"
+else
+  fail "do_restack(): function not defined"
+fi
+
+# main() must parse a --restack flag.
+if grep -qE '^\s*--restack\)' "$SHOW"; then
+  pass "main(): --restack parsed in argument loop"
+else
+  fail "main(): --restack not parsed in argument loop"
+fi
+
+# --restack must be handled before the "No target specified" check (no target).
+main_block=$(awk '/^main\(\) \{/,/^}/' "$SHOW")
+restack_ln=$(grep -n 'restack_mode" == true' <<<"$main_block" | head -1 | cut -d: -f1)
+notarget_ln=$(grep -n 'No target specified' <<<"$main_block" | head -1 | cut -d: -f1)
+if [[ -n "$restack_ln" && -n "$notarget_ln" && "$restack_ln" -lt "$notarget_ln" ]]; then
+  pass "main(): --restack handled before the no-target check"
+else
+  fail "main(): --restack not handled before the no-target check"
+fi
+
+# do_restack(): layout precedence is explicit arg > SHOW_LAYOUT > stacked,
+# validated via the same validator as --layout.
+dr_block=$(awk '/^do_restack\(\) \{/,/^}/' "$SHOW")
+if grep -q 'layout="$SHOW_LAYOUT"' <<<"$dr_block" \
+   && grep -q 'layout="stacked"' <<<"$dr_block"; then
+  pass "do_restack(): falls back to SHOW_LAYOUT then stacked"
+else
+  fail "do_restack(): missing SHOW_LAYOUT/stacked fallback"
+fi
+if grep -q 'validate_layout "$layout"' <<<"$dr_block"; then
+  pass "do_restack(): validates layout via validate_layout()"
+else
+  fail "do_restack(): does not validate via validate_layout()"
+fi
+
+# Behavioral: --restack outside tmux exits non-zero with an actionable
+# message, mirroring the stacked-layout error.
+rs_out=$(env -u TMUX -u TMUX_PANE "$SHOW" --restack 2>&1) && rs_rc=0 || rs_rc=$?
+if [[ "$rs_rc" -ne 0 ]] && grep -q 'requires running inside tmux' <<<"$rs_out"; then
+  pass "--restack outside tmux: non-zero exit + actionable message"
+else
+  fail "--restack outside tmux: expected non-zero + tmux message (rc=$rs_rc, out=$rs_out)"
+fi
+
+# Behavioral: --restack needs no target (must not emit the no-target error).
+if grep -q 'No target specified' <<<"$rs_out"; then
+  fail "--restack still requires a target (got: $rs_out)"
+else
+  pass "--restack requires no target"
+fi
+
+# Behavioral: an invalid layout argument is rejected like --layout.
+ri_out=$(env -u TMUX -u TMUX_PANE "$SHOW" --restack bogus 2>&1) && ri_rc=0 || ri_rc=$?
+if [[ "$ri_rc" -ne 0 ]] && grep -q 'Invalid layout: bogus' <<<"$ri_out"; then
+  pass "--restack rejects an invalid layout argument"
+else
+  fail "--restack rejects invalid layout (rc=$ri_rc, out=$ri_out)"
+fi
+
+# --- restack_layout() non-stacked mappings (SHOW-98 impl-003) ---
+echo ""
+echo "restack_layout non-stacked mappings (SHOW-98 impl-003):"
+
+rl_block=$(awk '/^restack_layout\(\) \{/,/^}/' "$SHOW")
+
+# right/left must arrange main-vertical (alongside stacked, leader ~30% width).
+if grep -qE '^\s*stacked\|right\|left\)' <<<"$rl_block" \
+   && grep -q 'select-layout .* main-vertical' <<<"$rl_block" \
+   && grep -q 'resize-pane .* -x 30%' <<<"$rl_block"; then
+  pass "restack_layout(): stacked/right/left -> main-vertical + leader 30% width"
+else
+  fail "restack_layout(): missing stacked/right/left main-vertical mapping"
+fi
+
+# below/above must arrange main-horizontal, leader-relative.
+if grep -qE '^\s*below\|above\)' <<<"$rl_block" \
+   && grep -q 'select-layout .* main-horizontal' <<<"$rl_block" \
+   && grep -q 'resize-pane .* -y 70%' <<<"$rl_block"; then
+  pass "restack_layout(): below/above -> main-horizontal + leader 70% height"
+else
+  fail "restack_layout(): missing below/above main-horizontal mapping"
+fi
+
+# Unsupported layout (window/here/other) -> clear message, non-zero, and no
+# destructive tmux call in that arm.
+default_arm=$(awk '/^\s*\*\)/,/;;/' <<<"$rl_block")
+if grep -q 'does not support layout' <<<"$default_arm" \
+   && grep -q 'return 1' <<<"$default_arm" \
+   && ! grep -qE 'tmux (kill|select-layout|resize-pane)' <<<"$default_arm"; then
+  pass "restack_layout(): unsupported layout -> clear message, no destructive action"
+else
+  fail "restack_layout(): unsupported-layout arm missing message/return or is destructive"
+fi
+
+# Behavioral: an unsupported-but-valid layout (window) does not crash; outside
+# tmux it surfaces the tmux requirement (the unsupported message needs tmux).
+rw_out=$(env -u TMUX -u TMUX_PANE "$SHOW" --restack window 2>&1) && rw_rc=0 || rw_rc=$?
+if [[ "$rw_rc" -ne 0 ]] && ! grep -q 'No target specified' <<<"$rw_out"; then
+  pass "--restack window: non-zero exit, no target required"
+else
+  fail "--restack window: expected non-zero without no-target error (rc=$rw_rc, out=$rw_out)"
+fi
+
+# --- --help + CHANGELOG document --restack (SHOW-98 impl-004) ---
+echo ""
+echo "--restack docs (SHOW-98 impl-004):"
+
+help_out=$("$SHOW" --help 2>&1)
+
+# --help Options must list the --restack flag.
+if grep -qE -- '--restack \[?LAYOUT' <<<"$help_out"; then
+  pass "--help documents the --restack flag"
+else
+  fail "--help does not document --restack"
+fi
+
+# --help must describe the default-layout behavior for --restack.
+if grep -qi 'restack' <<<"$help_out" \
+   && grep -qiE 'configured default layout|SHOW_LAYOUT' <<<"$help_out"; then
+  pass "--help describes --restack default-layout behavior"
+else
+  fail "--help does not describe --restack default-layout behavior"
+fi
+
+# CHANGELOG must mention --restack under the Unreleased section.
+CHANGELOG="$(dirname "$SHOW")/../CHANGELOG.md"
+if [[ -f "$CHANGELOG" ]]; then
+  unreleased=$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f' "$CHANGELOG")
+  if grep -q -- '--restack' <<<"$unreleased"; then
+    pass "CHANGELOG documents --restack under [Unreleased]"
+  else
+    fail "CHANGELOG does not document --restack under [Unreleased]"
+  fi
+else
+  fail "CHANGELOG.md not found at $CHANGELOG"
+fi
+
 # --- cmd: machine-readable handle (SHOW-92) ---
 echo ""
 echo "cmd: handle (SHOW-92):"

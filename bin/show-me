@@ -98,6 +98,11 @@ Options:
   -p, --pane ID            Target specific pane ID
   --layout VALUE           Layout mode: right, below, left, above, window, stacked
                            Default: stacked. Overrides SHOW_LAYOUT env var.
+  --restack [LAYOUT]       Re-apply a layout to the panes already in the window,
+                           then exit — creates no new pane and shows nothing.
+                           LAYOUT is optional and accepts the same values as
+                           --layout; when omitted, uses the configured default
+                           layout (SHOW_LAYOUT, 'stacked' when unset).
   --here                   Show in a split pane (shorthand for content-type default
                            direction: right for files, below for commands)
   --format VALUE           cmd: output format: human (default) or json.
@@ -120,6 +125,11 @@ Behavior:
   behavior — content goes into a separate "show" window of your tmux
   session. If you're not in tmux, show-me uses an attached session, or
   creates one if none exist.
+
+  Use --restack to tidy panes that have drifted (manually split, closed,
+  or resized) back into a layout without creating a new pane. It takes no
+  target; with no LAYOUT argument it re-applies the configured default
+  layout (SHOW_LAYOUT, 'stacked' when unset). Must run inside tmux.
 
   See docs/layouts.md for the full layout reference.
 
@@ -149,6 +159,8 @@ Examples:
   show-me --layout right README.md     # Open in split pane to the right
   show-me --layout below "cmd:make"    # Run command in pane below
   show-me --here README.md             # Split pane (default direction for type)
+  show-me --restack                    # Re-tidy drifted panes to default layout
+  show-me --restack below              # Re-apply the below/horizontal layout
   show-me --format json "cmd:make"     # Run command, emit one-line JSON handle
   show-me --hold 60 README.md          # Hold focus for 60s (long document)
 
@@ -923,6 +935,88 @@ is_split_layout() {
   esac
 }
 
+# Re-apply a tmux layout to the panes already in a window.
+# Only rearranges existing panes -- never creates or closes a pane.
+# Args: window_id, leader_pane, layout
+#
+# Layout -> tmux arrangement mapping (leader-relative):
+#   stacked / right / left  -> main-vertical, leader pinned to ~30% width
+#   below / above           -> main-horizontal, leader pinned to ~70% height
+#   window / here / other    -> unsupported (clear message, no destructive action)
+#
+# Returns: 0 on a successful rearrange, 1 for an unsupported layout.
+restack_layout() {
+  local window_id="$1"
+  local leader_pane="$2"
+  local layout="$3"
+
+  case "$layout" in
+    stacked|right|left)
+      # main-vertical: leader is a narrow ~30%-width column, content fills
+      # the rest. (stacked's create-time algorithm differs, but the redraw
+      # target is the same arrangement.)
+      tmux select-layout -t "$window_id" main-vertical 2>/dev/null || true
+      tmux resize-pane -t "$leader_pane" -x 30% 2>/dev/null || true
+      ;;
+    below|above)
+      # main-horizontal: content stacked below/above the leader, with the
+      # leader keeping the larger ~70% height (mirrors the create-time split).
+      tmux select-layout -t "$window_id" main-horizontal 2>/dev/null || true
+      tmux resize-pane -t "$leader_pane" -y 70% 2>/dev/null || true
+      ;;
+    *)
+      # window / here / anything else: no sensible single-window rearrangement
+      # of existing panes. Do nothing destructive -- never close or move panes.
+      echo "Error: --restack does not support layout '$layout'" >&2
+      echo "Supported: stacked, right, left, below, above" >&2
+      return 1
+      ;;
+  esac
+}
+
+# Handle `show-me --restack [layout]`: re-apply a layout to the panes already
+# in the current window, then exit. Creates nothing and shows nothing -- no
+# target is required.
+#
+# Layout precedence: explicit argument > SHOW_LAYOUT (env or --layout) >
+# stacked default. The resolved layout is validated against the same value
+# set as --layout. Must run inside tmux; exits non-zero with an actionable
+# message otherwise, mirroring the stacked-layout error in create_stacked_pane().
+#
+# Args: layout_arg (may be empty)
+do_restack() {
+  local layout="$1"
+
+  # Resolve layout: explicit arg > SHOW_LAYOUT > stacked default
+  if [[ -z "$layout" ]]; then
+    layout="$SHOW_LAYOUT"
+  fi
+  if [[ -z "$layout" ]]; then
+    layout="stacked"
+  fi
+
+  # Validate against the same value set as --layout (before touching tmux)
+  validate_layout "$layout" || return 1
+
+  if [[ -z "${TMUX:-}" ]]; then
+    echo "Error: --restack requires running inside tmux" >&2
+    return 1
+  fi
+
+  local leader_pane="${TMUX_PANE:-}"
+  if [[ -z "$leader_pane" ]]; then
+    echo "Error: TMUX_PANE not set; cannot identify leader pane for --restack" >&2
+    return 1
+  fi
+
+  # Resolve the leader's window via the leader pane id (see create_stacked_pane
+  # for why we anchor to the pane rather than the active client).
+  local window_id
+  window_id=$(tmux display-message -p -t "$leader_pane" '#{window_id}')
+
+  restack_layout "$window_id" "$leader_pane" "$layout"
+}
+
 # Create a stacked pane following the tmux teammate-layout algorithm
 # Each call adds a new pane to the right-hand stack; leader stays on the left.
 # First call: split leader horizontally (leader 30%, content 70%).
@@ -981,9 +1075,8 @@ create_stacked_pane() {
       return 1
     }
 
-    # Rebalance: restore main-vertical layout, then pin leader to 30% width
-    tmux select-layout -t "$window_id" main-vertical 2>/dev/null || true
-    tmux resize-pane -t "$leader_pane" -x 30% 2>/dev/null || true
+    # Rebalance: re-apply the stacked layout to the panes we just changed
+    restack_layout "$window_id" "$leader_pane" stacked
   fi
 
   echo "$new_pane"
@@ -1112,6 +1205,8 @@ EOF
   local pane=""
   local target=""
   local hold_seconds=""
+  local restack_mode=false
+  local restack_layout_arg=""
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -1164,6 +1259,17 @@ EOF
         SHOW_LAYOUT="here"
         shift
         ;;
+      --restack)
+        restack_mode=true
+        # Optional layout argument: consume the next token only if it is
+        # present and not another flag (e.g. `show-me --restack below`).
+        if [[ -n "${2:-}" && "$2" != -* ]]; then
+          restack_layout_arg="$2"
+          shift 2
+        else
+          shift
+        fi
+        ;;
       -*)
         echo "Unknown option: $1" >&2
         exit 1
@@ -1179,6 +1285,13 @@ EOF
         ;;
     esac
   done
+
+  # --restack: re-apply a layout to existing panes, then exit. No target,
+  # creates nothing, shows nothing -- handled before the target requirement.
+  if [[ "$restack_mode" == true ]]; then
+    do_restack "$restack_layout_arg" && exit 0
+    exit 1
+  fi
 
   if [[ -z "$target" ]]; then
     echo "Error: No target specified" >&2
