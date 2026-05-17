@@ -4,6 +4,23 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`--restack` flag re-applies a layout to existing panes (SHOW-98).**
+  `show-me --restack` takes no target: it redraws the panes already in the
+  window into a layout and exits, creating no new pane and showing nothing —
+  a "redraw to stacked" button for panes that have drifted after manual
+  splits/closes/resizes. With no argument it uses the configured default
+  layout (`SHOW_LAYOUT`, `stacked` when unset); an optional argument
+  overrides it (`show-me --restack below`) and accepts the same values as
+  `--layout`. `stacked`/`right`/`left` map to `main-vertical` (leader ~30%),
+  `below`/`above` to `main-horizontal`; unsupported layouts and running
+  outside tmux exit non-zero with an actionable message. The stacked
+  rebalance was extracted into a shared `restack_layout()` so
+  `create_stacked_pane()` and `--restack` no longer duplicate the tmux
+  commands. Shell completion for the flag is out of scope here and tracked
+  in SHOW-100.
+
 ## [3.0.0] - 2026-05-16
 
 ### Added

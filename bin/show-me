@@ -98,6 +98,11 @@ Options:
   -p, --pane ID            Target specific pane ID
   --layout VALUE           Layout mode: right, below, left, above, window, stacked
                            Default: stacked. Overrides SHOW_LAYOUT env var.
+  --restack [LAYOUT]       Re-apply a layout to the panes already in the window,
+                           then exit — creates no new pane and shows nothing.
+                           LAYOUT is optional and accepts the same values as
+                           --layout; when omitted, uses the configured default
+                           layout (SHOW_LAYOUT, 'stacked' when unset).
   --here                   Show in a split pane (shorthand for content-type default
                            direction: right for files, below for commands)
   --format VALUE           cmd: output format: human (default) or json.
@@ -120,6 +125,11 @@ Behavior:
   behavior — content goes into a separate "show" window of your tmux
   session. If you're not in tmux, show-me uses an attached session, or
   creates one if none exist.
+
+  Use --restack to tidy panes that have drifted (manually split, closed,
+  or resized) back into a layout without creating a new pane. It takes no
+  target; with no LAYOUT argument it re-applies the configured default
+  layout (SHOW_LAYOUT, 'stacked' when unset). Must run inside tmux.
 
   See docs/layouts.md for the full layout reference.
 
@@ -149,6 +159,8 @@ Examples:
   show-me --layout right README.md     # Open in split pane to the right
   show-me --layout below "cmd:make"    # Run command in pane below
   show-me --here README.md             # Split pane (default direction for type)
+  show-me --restack                    # Re-tidy drifted panes to default layout
+  show-me --restack below              # Re-apply the below/horizontal layout
   show-me --format json "cmd:make"     # Run command, emit one-line JSON handle
   show-me --hold 60 README.md          # Hold focus for 60s (long document)
 

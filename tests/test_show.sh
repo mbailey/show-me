@@ -503,6 +503,40 @@ else
   fail "--restack window: expected non-zero without no-target error (rc=$rw_rc, out=$rw_out)"
 fi
 
+# --- --help + CHANGELOG document --restack (SHOW-98 impl-004) ---
+echo ""
+echo "--restack docs (SHOW-98 impl-004):"
+
+help_out=$("$SHOW" --help 2>&1)
+
+# --help Options must list the --restack flag.
+if grep -qE -- '--restack \[?LAYOUT' <<<"$help_out"; then
+  pass "--help documents the --restack flag"
+else
+  fail "--help does not document --restack"
+fi
+
+# --help must describe the default-layout behavior for --restack.
+if grep -qi 'restack' <<<"$help_out" \
+   && grep -qiE 'configured default layout|SHOW_LAYOUT' <<<"$help_out"; then
+  pass "--help describes --restack default-layout behavior"
+else
+  fail "--help does not describe --restack default-layout behavior"
+fi
+
+# CHANGELOG must mention --restack under the Unreleased section.
+CHANGELOG="$(dirname "$SHOW")/../CHANGELOG.md"
+if [[ -f "$CHANGELOG" ]]; then
+  unreleased=$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f' "$CHANGELOG")
+  if grep -q -- '--restack' <<<"$unreleased"; then
+    pass "CHANGELOG documents --restack under [Unreleased]"
+  else
+    fail "CHANGELOG does not document --restack under [Unreleased]"
+  fi
+else
+  fail "CHANGELOG.md not found at $CHANGELOG"
+fi
+
 # --- cmd: machine-readable handle (SHOW-92) ---
 echo ""
 echo "cmd: handle (SHOW-92):"
