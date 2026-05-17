@@ -358,6 +358,40 @@ else
   fail "handle_diff: stacked-skip guard missing (diffs would hijack reused nvim — SHOW-62 regression)"
 fi
 
+# --- restack_layout() extraction (SHOW-98 impl-001) ---
+echo ""
+echo "restack_layout extraction (SHOW-98):"
+
+# restack_layout() must exist as a reusable function.
+if grep -q '^restack_layout() {' "$SHOW"; then
+  pass "restack_layout(): function defined"
+else
+  fail "restack_layout(): function not defined"
+fi
+
+# create_stacked_pane() must delegate to restack_layout() and no longer inline
+# the select-layout / resize-pane tmux calls (no duplicated tmux commands).
+csp_block=$(awk '/^create_stacked_pane\(\) \{/,/^}/' "$SHOW")
+if grep -q 'restack_layout "\$window_id" "\$leader_pane" stacked' <<<"$csp_block"; then
+  pass "create_stacked_pane(): delegates to restack_layout()"
+else
+  fail "create_stacked_pane(): does not call restack_layout()"
+fi
+if grep -q 'select-layout .* main-vertical' <<<"$csp_block"; then
+  fail "create_stacked_pane(): still inlines select-layout (duplicated tmux call)"
+else
+  pass "create_stacked_pane(): rebalance no longer inlined"
+fi
+
+# The extracted function must hold the stacked rebalance logic.
+rl_block=$(awk '/^restack_layout\(\) \{/,/^}/' "$SHOW")
+if grep -q 'select-layout .* main-vertical' <<<"$rl_block" \
+   && grep -q 'resize-pane .* -x 30%' <<<"$rl_block"; then
+  pass "restack_layout(): holds stacked rebalance (main-vertical + leader 30%)"
+else
+  fail "restack_layout(): missing stacked rebalance logic"
+fi
+
 # --- cmd: machine-readable handle (SHOW-92) ---
 echo ""
 echo "cmd: handle (SHOW-92):"

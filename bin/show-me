@@ -923,6 +923,26 @@ is_split_layout() {
   esac
 }
 
+# Re-apply a tmux layout to the panes already in a window.
+# Only rearranges existing panes -- never creates or closes a pane.
+# Args: window_id, leader_pane, layout
+# Currently implements the stacked rebalance (main-vertical + leader pinned to
+# 30% width). Mapping the other layouts (right/below/left/above) onto sensible
+# tmux arrangements is handled by a later feature (SHOW-98 impl-003).
+restack_layout() {
+  local window_id="$1"
+  local leader_pane="$2"
+  local layout="$3"
+
+  case "$layout" in
+    stacked)
+      # Restore main-vertical layout, then pin leader to 30% width
+      tmux select-layout -t "$window_id" main-vertical 2>/dev/null || true
+      tmux resize-pane -t "$leader_pane" -x 30% 2>/dev/null || true
+      ;;
+  esac
+}
+
 # Create a stacked pane following the tmux teammate-layout algorithm
 # Each call adds a new pane to the right-hand stack; leader stays on the left.
 # First call: split leader horizontally (leader 30%, content 70%).
@@ -981,9 +1001,8 @@ create_stacked_pane() {
       return 1
     }
 
-    # Rebalance: restore main-vertical layout, then pin leader to 30% width
-    tmux select-layout -t "$window_id" main-vertical 2>/dev/null || true
-    tmux resize-pane -t "$leader_pane" -x 30% 2>/dev/null || true
+    # Rebalance: re-apply the stacked layout to the panes we just changed
+    restack_layout "$window_id" "$leader_pane" stacked
   fi
 
   echo "$new_pane"
