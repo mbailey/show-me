@@ -943,6 +943,49 @@ restack_layout() {
   esac
 }
 
+# Handle `show-me --restack [layout]`: re-apply a layout to the panes already
+# in the current window, then exit. Creates nothing and shows nothing -- no
+# target is required.
+#
+# Layout precedence: explicit argument > SHOW_LAYOUT (env or --layout) >
+# stacked default. The resolved layout is validated against the same value
+# set as --layout. Must run inside tmux; exits non-zero with an actionable
+# message otherwise, mirroring the stacked-layout error in create_stacked_pane().
+#
+# Args: layout_arg (may be empty)
+do_restack() {
+  local layout="$1"
+
+  # Resolve layout: explicit arg > SHOW_LAYOUT > stacked default
+  if [[ -z "$layout" ]]; then
+    layout="$SHOW_LAYOUT"
+  fi
+  if [[ -z "$layout" ]]; then
+    layout="stacked"
+  fi
+
+  # Validate against the same value set as --layout (before touching tmux)
+  validate_layout "$layout" || return 1
+
+  if [[ -z "${TMUX:-}" ]]; then
+    echo "Error: --restack requires running inside tmux" >&2
+    return 1
+  fi
+
+  local leader_pane="${TMUX_PANE:-}"
+  if [[ -z "$leader_pane" ]]; then
+    echo "Error: TMUX_PANE not set; cannot identify leader pane for --restack" >&2
+    return 1
+  fi
+
+  # Resolve the leader's window via the leader pane id (see create_stacked_pane
+  # for why we anchor to the pane rather than the active client).
+  local window_id
+  window_id=$(tmux display-message -p -t "$leader_pane" '#{window_id}')
+
+  restack_layout "$window_id" "$leader_pane" "$layout"
+}
+
 # Create a stacked pane following the tmux teammate-layout algorithm
 # Each call adds a new pane to the right-hand stack; leader stays on the left.
 # First call: split leader horizontally (leader 30%, content 70%).
@@ -1131,6 +1174,8 @@ EOF
   local pane=""
   local target=""
   local hold_seconds=""
+  local restack_mode=false
+  local restack_layout_arg=""
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -1183,6 +1228,17 @@ EOF
         SHOW_LAYOUT="here"
         shift
         ;;
+      --restack)
+        restack_mode=true
+        # Optional layout argument: consume the next token only if it is
+        # present and not another flag (e.g. `show-me --restack below`).
+        if [[ -n "${2:-}" && "$2" != -* ]]; then
+          restack_layout_arg="$2"
+          shift 2
+        else
+          shift
+        fi
+        ;;
       -*)
         echo "Unknown option: $1" >&2
         exit 1
@@ -1198,6 +1254,13 @@ EOF
         ;;
     esac
   done
+
+  # --restack: re-apply a layout to existing panes, then exit. No target,
+  # creates nothing, shows nothing -- handled before the target requirement.
+  if [[ "$restack_mode" == true ]]; then
+    do_restack "$restack_layout_arg" && exit 0
+    exit 1
+  fi
 
   if [[ -z "$target" ]]; then
     echo "Error: No target specified" >&2

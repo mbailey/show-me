@@ -392,6 +392,73 @@ else
   fail "restack_layout(): missing stacked rebalance logic"
 fi
 
+# --- --restack flag (SHOW-98 impl-002) ---
+echo ""
+echo "--restack flag (SHOW-98 impl-002):"
+
+# do_restack() handler must exist as a reusable function.
+if grep -q '^do_restack() {' "$SHOW"; then
+  pass "do_restack(): function defined"
+else
+  fail "do_restack(): function not defined"
+fi
+
+# main() must parse a --restack flag.
+if grep -qE '^\s*--restack\)' "$SHOW"; then
+  pass "main(): --restack parsed in argument loop"
+else
+  fail "main(): --restack not parsed in argument loop"
+fi
+
+# --restack must be handled before the "No target specified" check (no target).
+main_block=$(awk '/^main\(\) \{/,/^}/' "$SHOW")
+restack_ln=$(grep -n 'restack_mode" == true' <<<"$main_block" | head -1 | cut -d: -f1)
+notarget_ln=$(grep -n 'No target specified' <<<"$main_block" | head -1 | cut -d: -f1)
+if [[ -n "$restack_ln" && -n "$notarget_ln" && "$restack_ln" -lt "$notarget_ln" ]]; then
+  pass "main(): --restack handled before the no-target check"
+else
+  fail "main(): --restack not handled before the no-target check"
+fi
+
+# do_restack(): layout precedence is explicit arg > SHOW_LAYOUT > stacked,
+# validated via the same validator as --layout.
+dr_block=$(awk '/^do_restack\(\) \{/,/^}/' "$SHOW")
+if grep -q 'layout="$SHOW_LAYOUT"' <<<"$dr_block" \
+   && grep -q 'layout="stacked"' <<<"$dr_block"; then
+  pass "do_restack(): falls back to SHOW_LAYOUT then stacked"
+else
+  fail "do_restack(): missing SHOW_LAYOUT/stacked fallback"
+fi
+if grep -q 'validate_layout "$layout"' <<<"$dr_block"; then
+  pass "do_restack(): validates layout via validate_layout()"
+else
+  fail "do_restack(): does not validate via validate_layout()"
+fi
+
+# Behavioral: --restack outside tmux exits non-zero with an actionable
+# message, mirroring the stacked-layout error.
+rs_out=$(env -u TMUX -u TMUX_PANE "$SHOW" --restack 2>&1) && rs_rc=0 || rs_rc=$?
+if [[ "$rs_rc" -ne 0 ]] && grep -q 'requires running inside tmux' <<<"$rs_out"; then
+  pass "--restack outside tmux: non-zero exit + actionable message"
+else
+  fail "--restack outside tmux: expected non-zero + tmux message (rc=$rs_rc, out=$rs_out)"
+fi
+
+# Behavioral: --restack needs no target (must not emit the no-target error).
+if grep -q 'No target specified' <<<"$rs_out"; then
+  fail "--restack still requires a target (got: $rs_out)"
+else
+  pass "--restack requires no target"
+fi
+
+# Behavioral: an invalid layout argument is rejected like --layout.
+ri_out=$(env -u TMUX -u TMUX_PANE "$SHOW" --restack bogus 2>&1) && ri_rc=0 || ri_rc=$?
+if [[ "$ri_rc" -ne 0 ]] && grep -q 'Invalid layout: bogus' <<<"$ri_out"; then
+  pass "--restack rejects an invalid layout argument"
+else
+  fail "--restack rejects invalid layout (rc=$ri_rc, out=$ri_out)"
+fi
+
 # --- cmd: machine-readable handle (SHOW-92) ---
 echo ""
 echo "cmd: handle (SHOW-92):"
