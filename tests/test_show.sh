@@ -524,18 +524,13 @@ else
   fail "--help does not describe --restack default-layout behavior"
 fi
 
-# CHANGELOG must mention --restack under the Unreleased section.
-CHANGELOG="$(dirname "$SHOW")/../CHANGELOG.md"
-if [[ -f "$CHANGELOG" ]]; then
-  unreleased=$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f' "$CHANGELOG")
-  if grep -q -- '--restack' <<<"$unreleased"; then
-    pass "CHANGELOG documents --restack under [Unreleased]"
-  else
-    fail "CHANGELOG does not document --restack under [Unreleased]"
-  fi
-else
-  fail "CHANGELOG.md not found at $CHANGELOG"
-fi
+# NOTE: a "CHANGELOG documents --restack" assertion intentionally does NOT
+# live here. A changelog entry is immutable history -- once written it cannot
+# regress -- so such a check has no ongoing value in a permanent suite, only
+# runs forever asserting a historical fact, and is fragile to release
+# mechanics (`make release` moves [Unreleased] into a versioned section).
+# That "did we document the feature?" gate belongs in the task harness as a
+# one-time acceptance check, which it had (SHOW-98 impl-004), not here.
 
 # --- cmd: machine-readable handle (SHOW-92) ---
 echo ""
