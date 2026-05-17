@@ -90,8 +90,14 @@ show-me pane:15                      # Focus pane
 show-me --hold 60 README.md          # Hold focus for 60s (visual conch)
 show-me --layout right README.md     # Open in split pane to the right
 show-me --here "cmd:make test"       # Split pane (default direction for type)
+show-me --cwd /path/to/repo "cmd:make test"  # Run cmd: in a specific directory
 show-me --format json "cmd:make"     # Run command, get a machine handle back
 ```
+
+**`--cwd PATH`** runs a `cmd:` target in `PATH` instead of the caller's cwd
+(wrapped as `cd -- "<PATH>" && <cmd>`). No-op for file/URL targets. A missing
+directory is a hard error (`show-me: --cwd: no such directory: <PATH>`, no pane
+created) — show-me never silently falls back to the caller's cwd.
 
 **Layout:** You don't need to specify `--layout` — just call `show-me <target>`. The user's `SHOW_LAYOUT` env var controls where content appears. In split mode, subsequent file shows reuse the existing Neovim pane.
 

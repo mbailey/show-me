@@ -30,6 +30,7 @@ Options:
   --layout VALUE           Layout: right, below, left, above, window, stacked
   --here                   Split pane (right for files, below for commands)
   --format VALUE           cmd: output format: human (default) or json
+  --cwd PATH               Run cmd: targets in PATH (no-op for file/URL)
   --hold SECONDS           Hold visual focus for N seconds (default: 30)
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
@@ -82,6 +83,33 @@ show-me "cmd:pytest -v"              # Run tests with output
 ```
 
 Commands run in the shell pane of the "show" tmux session, allowing the user to see live output.
+
+#### Running in a specific directory (`--cwd`)
+
+`--cwd PATH` runs a `cmd:` target in `PATH` instead of the caller's working
+directory:
+
+```bash
+show-me --cwd /path/to/repo "cmd:make test"   # make test runs in that repo
+```
+
+Behaviour:
+
+- **`cmd:` targets only.** The command is wrapped as `cd -- "<PATH>" && <cmd>`,
+  so it behaves identically whether show-me creates a new pane or reuses an
+  existing one. The pane's prior working directory is left unchanged after the
+  command (the `cd` is scoped to that command line).
+- **File/URL targets: documented no-op.** `--cwd` is accepted but ignored for
+  file and URL targets -- it does not error, and the target opens normally.
+  This keeps the flag composable in scripts that pass mixed targets.
+- **Invalid PATH is a hard error.** A missing directory exits non-zero with
+  `show-me: --cwd: no such directory: <PATH>` and creates no pane. show-me
+  does *not* fall back to the caller's cwd -- that would mask bugs in scripts
+  or agents passing a computed path. PATH is validated before any tmux pane
+  is created or reused.
+- **Handle unchanged.** The emitted human line and `--format json` handle
+  still show the user's original command (not the `cd` wrapper); the JSON
+  shape is unchanged.
 
 #### Following up on a command (agent handle)
 
