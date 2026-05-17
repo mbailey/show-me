@@ -926,19 +926,38 @@ is_split_layout() {
 # Re-apply a tmux layout to the panes already in a window.
 # Only rearranges existing panes -- never creates or closes a pane.
 # Args: window_id, leader_pane, layout
-# Currently implements the stacked rebalance (main-vertical + leader pinned to
-# 30% width). Mapping the other layouts (right/below/left/above) onto sensible
-# tmux arrangements is handled by a later feature (SHOW-98 impl-003).
+#
+# Layout -> tmux arrangement mapping (leader-relative):
+#   stacked / right / left  -> main-vertical, leader pinned to ~30% width
+#   below / above           -> main-horizontal, leader pinned to ~70% height
+#   window / here / other    -> unsupported (clear message, no destructive action)
+#
+# Returns: 0 on a successful rearrange, 1 for an unsupported layout.
 restack_layout() {
   local window_id="$1"
   local leader_pane="$2"
   local layout="$3"
 
   case "$layout" in
-    stacked)
-      # Restore main-vertical layout, then pin leader to 30% width
+    stacked|right|left)
+      # main-vertical: leader is a narrow ~30%-width column, content fills
+      # the rest. (stacked's create-time algorithm differs, but the redraw
+      # target is the same arrangement.)
       tmux select-layout -t "$window_id" main-vertical 2>/dev/null || true
       tmux resize-pane -t "$leader_pane" -x 30% 2>/dev/null || true
+      ;;
+    below|above)
+      # main-horizontal: content stacked below/above the leader, with the
+      # leader keeping the larger ~70% height (mirrors the create-time split).
+      tmux select-layout -t "$window_id" main-horizontal 2>/dev/null || true
+      tmux resize-pane -t "$leader_pane" -y 70% 2>/dev/null || true
+      ;;
+    *)
+      # window / here / anything else: no sensible single-window rearrangement
+      # of existing panes. Do nothing destructive -- never close or move panes.
+      echo "Error: --restack does not support layout '$layout'" >&2
+      echo "Supported: stacked, right, left, below, above" >&2
+      return 1
       ;;
   esac
 }

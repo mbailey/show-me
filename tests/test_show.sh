@@ -459,6 +459,50 @@ else
   fail "--restack rejects invalid layout (rc=$ri_rc, out=$ri_out)"
 fi
 
+# --- restack_layout() non-stacked mappings (SHOW-98 impl-003) ---
+echo ""
+echo "restack_layout non-stacked mappings (SHOW-98 impl-003):"
+
+rl_block=$(awk '/^restack_layout\(\) \{/,/^}/' "$SHOW")
+
+# right/left must arrange main-vertical (alongside stacked, leader ~30% width).
+if grep -qE '^\s*stacked\|right\|left\)' <<<"$rl_block" \
+   && grep -q 'select-layout .* main-vertical' <<<"$rl_block" \
+   && grep -q 'resize-pane .* -x 30%' <<<"$rl_block"; then
+  pass "restack_layout(): stacked/right/left -> main-vertical + leader 30% width"
+else
+  fail "restack_layout(): missing stacked/right/left main-vertical mapping"
+fi
+
+# below/above must arrange main-horizontal, leader-relative.
+if grep -qE '^\s*below\|above\)' <<<"$rl_block" \
+   && grep -q 'select-layout .* main-horizontal' <<<"$rl_block" \
+   && grep -q 'resize-pane .* -y 70%' <<<"$rl_block"; then
+  pass "restack_layout(): below/above -> main-horizontal + leader 70% height"
+else
+  fail "restack_layout(): missing below/above main-horizontal mapping"
+fi
+
+# Unsupported layout (window/here/other) -> clear message, non-zero, and no
+# destructive tmux call in that arm.
+default_arm=$(awk '/^\s*\*\)/,/;;/' <<<"$rl_block")
+if grep -q 'does not support layout' <<<"$default_arm" \
+   && grep -q 'return 1' <<<"$default_arm" \
+   && ! grep -qE 'tmux (kill|select-layout|resize-pane)' <<<"$default_arm"; then
+  pass "restack_layout(): unsupported layout -> clear message, no destructive action"
+else
+  fail "restack_layout(): unsupported-layout arm missing message/return or is destructive"
+fi
+
+# Behavioral: an unsupported-but-valid layout (window) does not crash; outside
+# tmux it surfaces the tmux requirement (the unsupported message needs tmux).
+rw_out=$(env -u TMUX -u TMUX_PANE "$SHOW" --restack window 2>&1) && rw_rc=0 || rw_rc=$?
+if [[ "$rw_rc" -ne 0 ]] && ! grep -q 'No target specified' <<<"$rw_out"; then
+  pass "--restack window: non-zero exit, no target required"
+else
+  fail "--restack window: expected non-zero without no-target error (rc=$rw_rc, out=$rw_out)"
+fi
+
 # --- cmd: machine-readable handle (SHOW-92) ---
 echo ""
 echo "cmd: handle (SHOW-92):"
