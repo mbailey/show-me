@@ -4,6 +4,22 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`--cwd PATH` runs `cmd:` targets in a specified directory (SHOW-102).**
+  `show-me --cwd /path/to/repo "cmd:make test"` runs the command in `PATH`
+  instead of the caller's working directory. The command is wrapped as
+  `cd -- "<PATH>" && <cmd>` so behaviour is identical whether show-me
+  creates a new pane or reuses an existing one, and a reused pane's prior
+  working directory is left unchanged. PATH is validated before any tmux
+  pane is created or reused: a missing directory is a hard error
+  (`show-me: --cwd: no such directory: <PATH>`, non-zero exit, no pane) —
+  show-me never silently falls back to the caller's cwd. `--cwd` is a
+  documented no-op for file/URL targets (accepted, ignored, target opens
+  normally), keeping the flag composable in scripts with mixed targets.
+  The emitted human line and `--format json` handle still show the user's
+  original command, not the `cd` wrapper (no SHOW-92 regression).
+
 ## [3.0.1] - 2026-05-17
 
 ### Added
