@@ -18,6 +18,7 @@ SHOW_ZOOM="${SHOW_ZOOM:-true}"
 SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty resolves to 'stacked' in main() (SHOW-86). Explicit SHOW_LAYOUT=window restores the historical separate-window behavior.
 SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-}"  # Split pane percentage (default: 70% side, 30% top/bottom)
 SHOW_FORMAT="${SHOW_FORMAT:-human}"  # Output format for cmd: handle. human = readable line + [pane %NN]; json = one-line machine handle (SHOW-92)
+SHOW_CWD=""  # --cwd PATH: working directory for cmd: targets (SHOW-102). Empty = caller's cwd (unchanged behavior). No env var: set only via the flag.
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
@@ -108,6 +109,10 @@ Options:
   --format VALUE           cmd: output format: human (default) or json.
                            human appends [pane %NN] to the line; json emits a
                            one-line machine-readable handle. Overrides SHOW_FORMAT.
+  --cwd PATH               Run cmd: targets in PATH instead of the caller's
+                           cwd. No-op for file/URL targets. PATH must exist;
+                           a missing directory is a hard error (no pane is
+                           created).
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
   --no-attach              Don't auto-attach terminal if no clients
@@ -161,6 +166,7 @@ Examples:
   show-me --here README.md             # Split pane (default direction for type)
   show-me --restack                    # Re-tidy drifted panes to default layout
   show-me --restack below              # Re-apply the below/horizontal layout
+  show-me --cwd /path/to/repo "cmd:make test"  # Run make test in that repo
   show-me --format json "cmd:make"     # Run command, emit one-line JSON handle
   show-me --hold 60 README.md          # Hold focus for 60s (long document)
 
@@ -698,6 +704,19 @@ handle_command() {
   command="${command#cmd:}"
   command="${command#command:}"
 
+  # --cwd (SHOW-102): wrap as `cd -- "<PATH>" && <cmd>` so the command
+  # runs in PATH regardless of whether the pane is new or reused (does
+  # not depend on the pane's inherited cwd). cmd: targets only -- file
+  # and URL handlers never reach this path, so --cwd is a no-op there.
+  # SHOW_CWD is already validated and resolved to an absolute path in
+  # main(); %q quoting keeps paths with spaces/specials intact. Only the
+  # string sent to the pane is wrapped -- the emitted handle still shows
+  # the user's original command (json/human shape unchanged, SHOW-92).
+  local send_command="$command"
+  if [[ -n "$SHOW_CWD" ]]; then
+    send_command="cd -- $(printf '%q' "$SHOW_CWD") && $command"
+  fi
+
   local pane_id
   local use_split=false
   local display_location
@@ -732,8 +751,8 @@ handle_command() {
     created=true
   fi
 
-  # Send command to pane
-  tmux send-keys -t "$pane_id" "$command" Enter
+  # Send command to pane (wrapped with the --cwd prefix when set)
+  tmux send-keys -t "$pane_id" "$send_command" Enter
 
   if [[ "$use_split" == true ]]; then
     # Split mode: no cross-session focus switch (already in current window)
@@ -1255,6 +1274,10 @@ EOF
         SHOW_FORMAT="$2"
         shift 2
         ;;
+      --cwd)
+        SHOW_CWD="$2"
+        shift 2
+        ;;
       --here)
         SHOW_LAYOUT="here"
         shift
@@ -1319,6 +1342,23 @@ EOF
       exit 1
       ;;
   esac
+
+  # Validate --cwd (SHOW-102). Hard error on a missing directory -- do NOT
+  # silently fall back to the caller's cwd, that would hide bugs in
+  # scripts/agents passing a computed path. Validated here, before any
+  # tmux pane is created or reused, so the error fires early rather than
+  # as a failed `cd` inside the pane. Resolved to an absolute path so the
+  # wrapped `cd` is independent of a reused pane's inherited cwd.
+  if [[ -n "$SHOW_CWD" ]]; then
+    if [[ ! -d "$SHOW_CWD" ]]; then
+      echo "show-me: --cwd: no such directory: $SHOW_CWD" >&2
+      exit 1
+    fi
+    SHOW_CWD=$(cd -- "$SHOW_CWD" 2>/dev/null && pwd -P) || {
+      echo "show-me: --cwd: no such directory: $SHOW_CWD" >&2
+      exit 1
+    }
+  fi
 
   # Set hold duration: CLI --hold > env var > default 30
   if [[ -n "$hold_seconds" ]]; then

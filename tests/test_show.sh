@@ -611,6 +611,101 @@ else
   skip "cmd: handle pane/json tests (not in tmux)"
 fi
 
+# --- --cwd flag (SHOW-102) ---
+echo ""
+echo "--cwd flag (SHOW-102):"
+
+# --cwd appears in --help Options
+if "$SHOW" --help 2>&1 | grep -qE -- '--cwd PATH'; then
+  pass "--help documents --cwd"
+else
+  fail "--help documents --cwd"
+fi
+
+# Invalid --cwd: hard error, non-zero exit, exact message, before any tmux
+# work (no tmux session needed -- validation happens before pane creation).
+bad_dir="/does/not/exist/$$"
+cwd_rc=0
+cwd_out=$("$SHOW" --cwd "$bad_dir" "cmd:pwd" 2>&1) || cwd_rc=$?
+if [[ "$cwd_rc" -ne 0 ]]; then
+  pass "--cwd invalid path exits non-zero"
+else
+  fail "--cwd invalid path exits non-zero (rc=$cwd_rc)"
+fi
+if [[ "$cwd_out" == "show-me: --cwd: no such directory: $bad_dir" ]]; then
+  pass "--cwd invalid path prints the exact error message"
+else
+  fail "--cwd invalid path prints the exact error message (got: $cwd_out)"
+fi
+
+if [[ -n "${TMUX:-}" ]]; then
+  cwd_tmp=$(mktemp -d)
+  # Resolve like show-me does (pwd -P) so the comparison holds where
+  # /tmp is a symlink (e.g. macOS /tmp -> /private/tmp).
+  cwd_tmp_real=$(cd -- "$cwd_tmp" && pwd -P)
+
+  # Invalid --cwd creates NO pane.
+  panes_before=$(tmux list-panes -a -F '#{pane_id}' | sort)
+  "$SHOW" --cwd "$bad_dir" "cmd:pwd" >/dev/null 2>&1 || true
+  panes_after=$(tmux list-panes -a -F '#{pane_id}' | sort)
+  if [[ "$panes_before" == "$panes_after" ]]; then
+    pass "--cwd invalid path creates no pane"
+  else
+    fail "--cwd invalid path creates no pane (panes changed)"
+  fi
+
+  # Valid --cwd: the command runs in PATH (pane output shows the dir).
+  c_out=$("$SHOW" --layout stacked --cwd "$cwd_tmp" "cmd:pwd" 2>/dev/null) || true
+  c_pane=$(grep -oE '\[pane (%[0-9]+)\]' <<<"$c_out" | grep -oE '%[0-9]+' || true)
+  if [[ -n "$c_pane" ]]; then
+    # Poll: -J joins wrapped lines so a long temp path matches even when
+    # the pane width wraps it. tr -d removes any residual wrap whitespace.
+    pane_pwd=""
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      sleep 0.3
+      if tmux capture-pane -p -J -t "$c_pane" 2>/dev/null \
+           | tr -d ' \n' | grep -qF "$(printf '%s' "$cwd_tmp_real" | tr -d ' ')"; then
+        pane_pwd="found"
+        break
+      fi
+    done
+    if [[ -n "$pane_pwd" ]]; then
+      pass "--cwd runs cmd: in the given directory"
+    else
+      fail "--cwd runs cmd: in the given directory (pane lacked $cwd_tmp_real)"
+    fi
+    # Emitted handle shows the user's original command, not the cd wrapper.
+    if grep -qE 'Executed: pwd in ' <<<"$c_out" && ! grep -q 'cd -- ' <<<"$c_out"; then
+      pass "--cwd handle shows original command (no cd wrapper leaked)"
+    else
+      fail "--cwd handle shows original command (got: $c_out)"
+    fi
+    tmux kill-pane -t "$c_pane" 2>/dev/null || true
+  else
+    fail "--cwd runs cmd: in the given directory (no pane emitted: $c_out)"
+  fi
+
+  # File/URL target: --cwd is a documented no-op (no error, opens normally).
+  cwd_file="$cwd_tmp/note.txt"
+  echo "hello" > "$cwd_file"
+  nf_rc=0
+  nf_out=$("$SHOW" --layout stacked --cwd "$cwd_tmp" "$cwd_file" 2>&1) || nf_rc=$?
+  if [[ "$nf_rc" -eq 0 ]] && ! grep -q 'no such directory' <<<"$nf_out"; then
+    pass "--cwd is a no-op for file targets (no error)"
+  else
+    fail "--cwd is a no-op for file targets (rc=$nf_rc, out=$nf_out)"
+  fi
+  # Tidy any panes the file open created in the show window.
+  tmux list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null \
+    | awk '/ nvim$/{print $1}' | while read -r p; do
+        tmux kill-pane -t "$p" 2>/dev/null || true
+      done
+
+  rm -rf "$cwd_tmp"
+else
+  skip "--cwd integration tests (not in tmux)"
+fi
+
 # --- Version drift check (SHOW-64) ---
 echo ""
 echo "Version drift check (SHOW-64):"
