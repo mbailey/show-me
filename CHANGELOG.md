@@ -43,7 +43,7 @@ All notable changes to show-me will be documented in this file.
   `look-at [options]`. Flags, layouts, env vars (`SHOW_*`), and behaviour
   are otherwise unchanged -- only the command names differ.
 
-  **Why:** `look` was *silently broken* -- homebrew util-linux ships
+  **Why:** `look` was _silently broken_ -- homebrew util-linux ships
   `/opt/homebrew/.../bin/look` earlier in PATH, so agents calling `look`
   got dictionary output with no error. `show` squats a generic verb and is
   a latent future-clash risk. `show-me` / `look-at` are both clash-free and
@@ -77,7 +77,7 @@ All notable changes to show-me will be documented in this file.
 
 - **`show cmd:` returns a machine-readable handle (SHOW-92).** The default
   human line now ends with `[pane %NN]` so an agent can `tmux capture-pane
-  -t %NN` and follow up — `cmd:` is no longer fire-and-forget. New
+-t %NN` and follow up — `cmd:` is no longer fire-and-forget. New
   `--format json` flag (and `SHOW_FORMAT` env var) emits a one-line JSON
   handle with `pane`, full `session`/`window` names, `window_index`,
   `pane_index`, `created` (new pane vs reused), `layout`, `status`
