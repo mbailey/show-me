@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-05-17
+
 ### Added
 
 - **`--restack` flag re-applies a layout to existing panes (SHOW-98).**
