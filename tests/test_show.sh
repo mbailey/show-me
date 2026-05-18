@@ -503,6 +503,45 @@ else
   fail "--restack window: expected non-zero without no-target error (rc=$rw_rc, out=$rw_out)"
 fi
 
+# --- --restack leader detection from a content pane (SHOW-104) ---
+echo ""
+echo "--restack leader detection (SHOW-104):"
+
+# Regression: `show-me --restack` is human-invoked, typically from a CONTENT
+# pane (Mike's shell), not the leader. The old code took TMUX_PANE to be the
+# leader, so resize-pane targeted the content pane: leader stayed ~70% wide
+# and content shrank to 30% -- backwards. The leader must be identified
+# positionally (top-left pane), so invoking from a content pane still pins
+# the *leader* to ~30%.
+if [[ -n "${TMUX:-}" ]]; then
+  rk_win=$(tmux new-window -d -P -F '#{window_id}')
+  rk_leader=$(tmux list-panes -t "$rk_win" -F '#{pane_id}' | head -1)
+  rk_content=$(tmux split-window -t "$rk_leader" -h -P -F '#{pane_id}')
+
+  # Invoke --restack as if from the CONTENT pane (TMUX_PANE=$rk_content).
+  rk_rc=0
+  rk_out=$(TMUX_PANE="$rk_content" "$SHOW" --restack stacked 2>&1) || rk_rc=$?
+
+  # Read back geometry. Leader is the top-left pane (pane_left == 0).
+  rk_win_w=$(tmux display-message -p -t "$rk_win" '#{window_width}')
+  rk_leader_w=$(tmux list-panes -t "$rk_win" \
+    -F '#{pane_left} #{pane_width}' | awk '$1 == 0 { print $2; exit }')
+  rk_content_w=$(tmux list-panes -t "$rk_win" \
+    -F '#{pane_left} #{pane_width}' | awk '$1 != 0 { print $2; exit }')
+
+  if [[ "$rk_rc" -eq 0 && -n "$rk_leader_w" && -n "$rk_content_w" \
+        && "$rk_leader_w" -lt "$rk_content_w" \
+        && $(( rk_leader_w * 100 / rk_win_w )) -lt 50 ]]; then
+    pass "--restack from a content pane pins the leader to ~30% (leader=${rk_leader_w}/${rk_win_w})"
+  else
+    fail "--restack from a content pane pins the leader to ~30% (rc=$rk_rc, leader=${rk_leader_w}, content=${rk_content_w}, win=${rk_win_w}, out=$rk_out)"
+  fi
+
+  tmux kill-window -t "$rk_win" 2>/dev/null || true
+else
+  skip "--restack leader detection (not in tmux)"
+fi
+
 # --- --help + CHANGELOG document --restack (SHOW-98 impl-004) ---
 echo ""
 echo "--restack docs (SHOW-98 impl-004):"
