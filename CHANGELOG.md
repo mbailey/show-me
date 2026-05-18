@@ -27,7 +27,7 @@ All notable changes to show-me will be documented in this file.
   the command runs in. That holds for `show` (the agent runs it from its
   own leader pane) but not for `--restack`, which is human-invoked from a
   content/shell pane. The leader was misidentified, so `select-layout
-  main-vertical` sized the real (top-left) leader as the large main pane
+main-vertical` sized the real (top-left) leader as the large main pane
   while `resize-pane` shrank the wrong pane — leaving the leader at ~70%
   and content at ~30%, backwards. `--restack` now resolves the leader
   positionally (topmost pane in the leftmost column, `pane_left == 0` with
