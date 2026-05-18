@@ -1022,16 +1022,38 @@ do_restack() {
     return 1
   fi
 
-  local leader_pane="${TMUX_PANE:-}"
-  if [[ -z "$leader_pane" ]]; then
-    echo "Error: TMUX_PANE not set; cannot identify leader pane for --restack" >&2
+  # --restack is human-invoked from an arbitrary pane -- typically a
+  # content/shell pane, NOT the leader. So unlike create_stacked_pane()
+  # (run by the agent from its own leader pane), TMUX_PANE here is the
+  # *invoking* pane and must not be assumed to be the leader. Use it only
+  # to resolve the window; identify the leader positionally.
+  local invoking_pane="${TMUX_PANE:-}"
+  if [[ -z "$invoking_pane" ]]; then
+    echo "Error: TMUX_PANE not set; cannot identify current window for --restack" >&2
     return 1
   fi
 
-  # Resolve the leader's window via the leader pane id (see create_stacked_pane
-  # for why we anchor to the pane rather than the active client).
+  # Resolve the window via the invoking pane id (see create_stacked_pane for
+  # why we anchor to a pane rather than the active client).
   local window_id
-  window_id=$(tmux display-message -p -t "$leader_pane" '#{window_id}')
+  window_id=$(tmux display-message -p -t "$invoking_pane" '#{window_id}')
+
+  # Leader = the top-left pane of the window: the pane in the leftmost column
+  # (pane_left == 0) with the smallest pane_top (topmost). pane_top is not
+  # always 0 -- a top pane-border-status line offsets it -- so anchor on the
+  # *minimum* top of the left column rather than a literal 0. This is
+  # layout-stable and matches how the stacked layout is constructed (leader
+  # on the left), so --restack pins the real leader to ~30% even when invoked
+  # from a content pane. Positional, not pane index, so it survives manual
+  # splits/closes.
+  local leader_pane
+  leader_pane=$(tmux list-panes -t "$window_id" \
+    -F '#{pane_left} #{pane_top} #{pane_id}' \
+    | awk '$1 == 0 { if (best == "" || $2 < bt) { bt = $2; best = $3 } } END { print best }')
+  if [[ -z "$leader_pane" ]]; then
+    echo "Error: could not identify leader (top-left) pane for --restack" >&2
+    return 1
+  fi
 
   restack_layout "$window_id" "$leader_pane" "$layout"
 }

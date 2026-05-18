@@ -20,6 +20,22 @@ All notable changes to show-me will be documented in this file.
   The emitted human line and `--format json` handle still show the user's
   original command, not the `cd` wrapper (no SHOW-92 regression).
 
+### Fixed
+
+- **`--restack` now identifies the leader positionally (SHOW-104).**
+  `do_restack()` previously assumed the leader was `TMUX_PANE` — the pane
+  the command runs in. That holds for `show` (the agent runs it from its
+  own leader pane) but not for `--restack`, which is human-invoked from a
+  content/shell pane. The leader was misidentified, so `select-layout
+  main-vertical` sized the real (top-left) leader as the large main pane
+  while `resize-pane` shrank the wrong pane — leaving the leader at ~70%
+  and content at ~30%, backwards. `--restack` now resolves the leader
+  positionally (topmost pane in the leftmost column, `pane_left == 0` with
+  the smallest `pane_top`), which is layout-stable and matches how the
+  stacked layout is constructed, so the leader is pinned to ~30% no matter
+  which pane invoked the command. `create_stacked_pane()`'s `TMUX_PANE`
+  use is unchanged — it is correct in practice (run from the leader pane).
+
 ## [3.0.1] - 2026-05-17
 
 ### Added
