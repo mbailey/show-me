@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-05-19
+
 ### Added
 
 - **`--cwd PATH` runs `cmd:` targets in a specified directory (SHOW-102).**
