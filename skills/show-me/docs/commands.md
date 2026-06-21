@@ -336,6 +336,7 @@ These mirror `bin/show-me --help`. The help text is canonical; this table follow
 | `SHOW_LAYOUT`      | `stacked`     | Layout mode: `right`/`below`/`left`/`above`/`stacked`/`window`. Set to `window` to restore the pre-2.4 default. |
 | `SHOW_SPLIT_SIZE`  | (auto)        | Split pane percentage; overrides direction defaults (70% side, 30% top/bottom) |
 | `SHOW_FORMAT`      | `human`       | `cmd:` output format: `human` (line + `[pane %NN]`) or `json` (one-line handle) |
+| `SHOW_NVIM_STARTUP_TIMEOUT` | `10` | Seconds to wait for a newly started nvim to become responsive before giving up. Early-exits as soon as nvim answers; raise on slow machines or heavy configs (SHOW-110). |
 
 ## Installation and Running Commands
 
