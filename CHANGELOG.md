@@ -4,6 +4,31 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Rapid/concurrent `show-me <file>` calls no longer each spawn a new nvim
+  pane (SHOW-110).** The SHOW-22 pane-reuse detection was safe for human-paced
+  use but not for a high-rate caller (e.g. taskmaster's show-on-create firing
+  for several new tasks at once): concurrent invocations each ran
+  `find_nvim_show_pane` before any sibling had bound a live socket, so all of
+  them created their own pane — three new tasks, three neovim panes. Two
+  changes close the gap:
+  - A **per-window mutex** (portable `mkdir` lock; macOS has no `flock(1)`)
+    serialises the find-or-create-and-start sequence, so the first caller
+    brings up one pane and the rest reuse it. Best-effort: outside tmux, on a
+    dead-holder lock, or after a 30s ceiling it proceeds unlocked rather than
+    hang. Different windows use different locks, so concurrent foremen don't
+    block each other.
+  - `find_nvim_show_pane` is now **non-destructive**: it no longer deletes a
+    socket whose pane is still running nvim (a slow cold start), which had been
+    orphaning a starting instance and forcing a duplicate pane. Only a pane
+    with no nvim is treated as stale.
+  - The new-nvim responsiveness wait is now configurable via
+    `SHOW_NVIM_STARTUP_TIMEOUT` (default 10s, was a hard-coded 3s). It
+    early-exits the moment nvim answers, so the higher ceiling only costs time
+    on a genuine startup failure — but it stops a slow cold start from
+    returning before nvim is reusable.
+
 ## [3.0.2] - 2026-05-19
 
 ### Added

@@ -19,6 +19,7 @@ SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty resolves to 'stacked' in main() (SHOW-86
 SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-}"  # Split pane percentage (default: 70% side, 30% top/bottom)
 SHOW_FORMAT="${SHOW_FORMAT:-human}"  # Output format for cmd: handle. human = readable line + [pane %NN]; json = one-line machine handle (SHOW-92)
 SHOW_CWD=""  # --cwd PATH: working directory for cmd: targets (SHOW-102). Empty = caller's cwd (unchanged behavior). No env var: set only via the flag.
+SHOW_NVIM_STARTUP_TIMEOUT="${SHOW_NVIM_STARTUP_TIMEOUT:-10}"  # Seconds to wait for a freshly started nvim to become responsive (SHOW-110). Early-exits the instant nvim answers, so a larger value only costs time on genuine startup failure. Raised from the old hard-coded 3s: cold starts with heavy configs (dashboard/LSP/treesitter) can exceed 3s, which made rapid callers spawn duplicate panes.
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
@@ -183,6 +184,8 @@ Environment:
   SHOW_SPLIT_SIZE          Split pane percentage (overrides direction defaults)
                            Defaults: 70% for right/left, 30% for below/above
   SHOW_FORMAT              cmd: output format: human (default) or json
+  SHOW_NVIM_STARTUP_TIMEOUT Seconds to wait for a new nvim to become responsive
+                           (default: 10). Raise on slow machines / heavy configs.
 
 EOF
 }
@@ -320,6 +323,57 @@ focus_pane() {
   echo "${SHOW_HOLD_SECONDS:-30}" > ~/.voicemode/focus-hold
 }
 
+# --- Per-window find-or-create lock (SHOW-110) -------------------------------
+# Rapid or concurrent `show-me <file>` calls used to each spawn their own nvim
+# pane: every call ran find_nvim_show_pane before any sibling had created a pane
+# and bound a live socket, so all of them fell through to "create a new pane".
+# A per-window mutex serialises the find-or-create-and-start sequence so the
+# first caller brings up one pane and the rest reuse it. Portable: a mkdir lock
+# (atomic on POSIX; macOS has no flock(1)). Best-effort — on timeout or any
+# failure we proceed UNLOCKED rather than hang or break the show.
+SHOW_LOCK_DIR=""  # set to the held lock dir; cleaned up by the EXIT trap
+
+release_show_lock() {
+  [[ -n "${SHOW_LOCK_DIR:-}" ]] && rm -rf "$SHOW_LOCK_DIR" 2>/dev/null
+  SHOW_LOCK_DIR=""
+}
+
+# Acquire the lock for the current leader pane's window. No-op outside tmux.
+acquire_show_lock() {
+  [[ -z "${TMUX:-}" || -z "${TMUX_PANE:-}" ]] && return 0
+  local socket_dir window_id lock pidfile holder
+  socket_dir=$(get_socket_dir)
+  window_id=$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null || true)
+  [[ -z "$window_id" ]] && return 0
+  lock="${socket_dir}/show-me-lock-${window_id#@}.d"
+  pidfile="${lock}/pid"
+  local attempts=0
+  # 30s ceiling (300 * 0.1s); if a holder genuinely takes longer we proceed
+  # unlocked rather than block the caller forever.
+  local max_attempts=300
+  while true; do
+    if mkdir "$lock" 2>/dev/null; then
+      echo $$ >"$pidfile" 2>/dev/null || true
+      SHOW_LOCK_DIR="$lock"
+      trap 'release_show_lock' EXIT
+      return 0
+    fi
+    # Lock held by someone else. Break it if the holder process is gone
+    # (crashed without releasing), otherwise wait.
+    holder=$(cat "$pidfile" 2>/dev/null || true)
+    if [[ -n "$holder" ]] && ! kill -0 "$holder" 2>/dev/null; then
+      rm -rf "$lock" 2>/dev/null || true
+      continue
+    fi
+    attempts=$((attempts + 1))
+    if [[ "$attempts" -ge "$max_attempts" ]]; then
+      echo "show-me: lock wait timed out (30s); proceeding without lock" >&2
+      return 0
+    fi
+    sleep 0.1
+  done
+}
+
 # Find an existing show-managed Neovim pane in the current window
 # Scans all panes in the current tmux window for nvim-show-pane-* sockets
 # Returns: pane ID (e.g. %15) on stdout if found, or returns 1 if none
@@ -340,8 +394,18 @@ find_nvim_show_pane() {
         echo "$pane_id"
         return 0
       else
-        # Stale socket: Neovim crashed or exited, clean up
-        rm -f "$socket" 2>/dev/null
+        # Socket exists but nvim isn't answering. Decide stale-vs-still-starting
+        # by the pane's running command, so we never delete the listen-socket of
+        # an nvim that is merely slow to boot — doing so orphaned it and forced a
+        # duplicate pane (SHOW-110). Only a pane with no nvim is truly stale.
+        local pane_cmd
+        pane_cmd=$(tmux display-message -p -t "$pane_id" '#{pane_current_command}' 2>/dev/null || true)
+        if [[ "$pane_cmd" != "nvim" ]]; then
+          # Neovim crashed/exited (pane now runs a shell or is gone): clean up.
+          rm -f "$socket" 2>/dev/null
+        fi
+        # else: nvim is starting/busy — leave the socket; the caller's startup
+        # wait (or a later scan under the lock) will reuse it once responsive.
       fi
     fi
   done
@@ -482,6 +546,12 @@ handle_file() {
     # cmd-driven teammate accumulation under stacked is unaffected. handle_diff
     # also keeps the stacked-skip-reuse guard to avoid the SHOW-62 hijack.
     use_split=true
+    # Serialise find-or-create so rapid/concurrent file shows converge on ONE
+    # nvim pane instead of racing to each create their own (SHOW-110). The lock
+    # is held until process exit (EXIT trap), so it also covers the nvim
+    # startup+wait below — a second caller only proceeds once this nvim is up
+    # and therefore discoverable by find_nvim_show_pane.
+    acquire_show_lock
     local existing_pane
     if existing_pane=$(find_nvim_show_pane); then
       pane_id="$existing_pane"
@@ -538,8 +608,12 @@ handle_file() {
     printf -v nvim_cmd 'nvim --listen %q %q' "$socket_path" "$file_path"
     tmux send-keys -t "$pane_id" "$nvim_cmd" Enter
 
-    # Wait for Neovim to start and socket to become available
-    if wait_for_nvim_socket "$socket_path"; then
+    # Wait for Neovim to start and socket to become available. Use the
+    # configurable cold-start budget (SHOW-110): the old 3s default let a slow
+    # nvim return before it was responsive, so the next rapid call deleted the
+    # still-starting socket and spawned a duplicate pane. Early-exits the moment
+    # nvim answers, so the higher ceiling only costs time on a real failure.
+    if wait_for_nvim_socket "$socket_path" "$((SHOW_NVIM_STARTUP_TIMEOUT * 5))" 0.2; then
       # Socket ready, now jump to line/range if specified
       if [[ -n "$end_line" && "$end_line" =~ ^[0-9]+$ ]]; then
         # Line range: use visual line mode to highlight

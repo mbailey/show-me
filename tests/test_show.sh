@@ -358,6 +358,61 @@ else
   fail "handle_diff: stacked-skip guard missing (diffs would hijack reused nvim — SHOW-62 regression)"
 fi
 
+# --- Concurrent file shows converge on one nvim pane (SHOW-110) ---
+echo ""
+echo "Concurrent reuse (SHOW-110):"
+
+# The per-window find-or-create mutex must exist.
+if declare -f acquire_show_lock >/dev/null 2>&1 && declare -f release_show_lock >/dev/null 2>&1; then
+  pass "acquire_show_lock/release_show_lock functions exist"
+else
+  fail "acquire_show_lock/release_show_lock functions exist"
+fi
+
+# find_nvim_show_pane must NOT unconditionally rm an unresponsive socket — it
+# should spare a pane that is still running nvim (slow cold start). Scan the
+# function body and assert the rm is guarded by a pane-command check.
+fnsp_block=$(awk '/^find_nvim_show_pane\(\) \{/,/^}/' "$SHOW")
+if grep -q 'pane_current_command' <<<"$fnsp_block"; then
+  pass "find_nvim_show_pane spares still-starting nvim (non-destructive, SHOW-110)"
+else
+  fail "find_nvim_show_pane non-destructive guard missing (would orphan a starting nvim)"
+fi
+
+# Integration: fire three file shows concurrently at one window; expect exactly
+# one nvim pane (leader + 1 = 2 panes). The bug produced one pane per call (4).
+if [[ -n "${TMUX:-}" ]] && command -v nvim >/dev/null 2>&1; then
+  cc_sess="smtest-show110-$$"
+  tmux kill-session -t "$cc_sess" 2>/dev/null || true
+  tmux new-session -d -s "$cc_sess" -x 220 -y 60
+  cc_leader=$(tmux list-panes -t "$cc_sess" -F '#{pane_id}' | head -1)
+  cc_tmp=$(mktemp -d)
+  for n in 1 2 3; do printf '# f%s\n' "$n" > "$cc_tmp/f$n.md"; done
+
+  for n in 1 2 3; do
+    TMUX_PANE="$cc_leader" "$SHOW" "$cc_tmp/f$n.md" >/dev/null 2>&1 &
+  done
+  wait
+  sleep 2  # let any just-started nvim settle before counting
+
+  cc_panes=$(tmux list-panes -t "$cc_sess" -F '#{pane_id}' 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$cc_panes" -eq 2 ]]; then
+    pass "3 concurrent file shows reuse one nvim pane (2 panes total)"
+  else
+    fail "3 concurrent file shows created $cc_panes panes (expected 2: leader + 1 nvim)"
+  fi
+
+  # Tidy: remove sockets for the test panes, kill the session, drop temp files.
+  cc_sockdir=$(get_socket_dir)
+  tmux list-panes -t "$cc_sess" -F '#{pane_id}' 2>/dev/null | while read -r p; do
+    rm -f "${cc_sockdir}/nvim-show-pane-${p#%}" 2>/dev/null || true
+  done
+  tmux kill-session -t "$cc_sess" 2>/dev/null || true
+  rm -rf "$cc_tmp"
+else
+  skip "concurrent reuse integration (needs tmux + nvim)"
+fi
+
 # --- restack_layout() extraction (SHOW-98 impl-001) ---
 echo ""
 echo "restack_layout extraction (SHOW-98):"
