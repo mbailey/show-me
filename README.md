@@ -8,6 +8,24 @@ Like Morpheus to Neo — "show me":
 
 These are complementary - `look-at` verifies what `show-me` displayed.
 
+## Quickstart
+
+```bash
+git clone https://github.com/mbailey/show-me.git
+claude --plugin-dir show-me          # load the plugin for this Claude Code session
+```
+
+Claude Code adds the plugin's `bin/` to `PATH` automatically for the agent, so
+`show-me` and `look-at` are ready to use immediately from Claude Code. To call
+them yourself from a regular shell (or from another Agent Skill runtime that
+doesn't do this for you), add `bin/` to your `PATH`, e.g. via a symlink into
+`~/.local/bin`:
+
+```bash
+ln -s "$(pwd)/show-me/bin/show-me" ~/.local/bin/show-me
+ln -s "$(pwd)/show-me/bin/look-at" ~/.local/bin/look-at
+```
+
 ## Requirements
 
 ### Required
@@ -29,8 +47,10 @@ These are complementary - `look-at` verifies what `show-me` displayed.
 > **Renamed in SHOW-58:** the commands are now `show-me` and `look-at` (was
 > `show` / `look`). The old names clashed with system binaries — `look` was
 > silently shadowed by util-linux's dictionary `look`. The namespaced names
-> have no such clash. Calling the old `show` now prints a migration error and
-> exits non-zero; `look` is removed. See [`docs/troubleshooting.md`](docs/troubleshooting.md).
+> have no such clash. The old `show`/`look` binaries are gone (the temporary
+> `show` migration stub was removed in SHOW-125) — calling either now is a
+> plain command-not-found. See
+> [`skills/show-me/references/troubleshooting.md`](skills/show-me/references/troubleshooting.md).
 
 ## Installation
 
@@ -88,17 +108,20 @@ look-at --hierarchy              # Show tmux session/window/pane layout
 
 ### Layouts
 
-By default, `show-me` opens content in a separate "show" window. `--layout` (or
-`SHOW_LAYOUT`) routes it into a split pane in the current window instead:
+By default, `show-me` uses the `stacked` layout: a leader pane on the left
+with content panes accumulating to the right, in the current window. `--layout`
+(or `SHOW_LAYOUT`) picks a different split, or restores the old separate "show"
+window behavior with `--layout window`:
 
 ```bash
+show-me --layout stacked "cmd:claude" # Default — stacked split, accumulate panes (great for teammate-style)
 show-me --layout right README.md     # Split right (70% wide)
 show-me --layout below "cmd:make"    # Split below (30% tall)
 show-me --layout left  README.md     # Split left
 show-me --layout above "cmd:date"    # Split above
-show-me --layout stacked "cmd:claude" # Stacked split — accumulate panes (great for teammate-style)
-show-me --layout window README.md    # Default — separate "show" window
+show-me --layout window README.md    # Restore old behavior — separate "show" window
 show-me --here README.md             # Shorthand: right for files, below for commands
+show-me --restack                    # Re-tidy drifted panes back into the default layout
 ```
 
 `SHOW_SPLIT_SIZE=40` overrides the direction default (e.g. `40` means 40%).
@@ -111,14 +134,26 @@ Environment variables (defaults shown):
 | ------------------ | ------------- | ------------------------------------------------------ |
 | `SHOW_SESSION`     | (auto-detect) | Target tmux session                                    |
 | `SHOW_WINDOW`      | `show`        | Window name for show output                            |
-| `SHOW_LAYOUT`      | `window`      | Default layout: `right`/`below`/`left`/`above`/`stacked`/`window` |
+| `SHOW_LAYOUT`      | `stacked`     | Default layout: `right`/`below`/`left`/`above`/`stacked`/`window` |
 | `SHOW_SPLIT_SIZE`  | (auto)        | Split percentage; overrides direction default          |
 | `SHOW_BROWSER`     | (auto)        | Browser for URLs (`Firefox`, `Chrome`, `Safari`, …)    |
 | `SHOW_FOCUS`       | `true`        | Switch focus to the show pane/window                   |
 | `SHOW_ZOOM`        | `true`        | Zoom the pane after showing (window mode only)         |
 | `SHOW_AUTO_ATTACH` | `true`        | Auto-attach the terminal if no tmux client is attached |
 
-For the full reference (every option, every flag), see [`docs/commands.md`](docs/commands.md)
+A few less-common flags worth knowing about (full detail in `show-me --help`):
+
+| Flag                | Purpose                                                              |
+| -------------------- | --------------------------------------------------------------------- |
+| `--restack [LAYOUT]` | Re-apply a layout to panes already in the window (tidy drift), no new pane |
+| `--format VALUE`     | `cmd:` output format: `human` (default) or `json`                     |
+| `--hold SECONDS`     | Hold visual focus for N seconds (default: 30); resists VoiceMode auto-focus |
+| `--cwd PATH`         | Run `cmd:` targets in `PATH` instead of the caller's cwd               |
+| `-p, --pane ID`      | Target a specific pane ID                                              |
+| `--no-attach`        | Don't auto-attach the terminal if no tmux client is attached           |
+
+For the full reference (every option, every flag), see
+[`skills/show-me/references/commands.md`](skills/show-me/references/commands.md)
 or run `show-me --help`.
 
 ## Optional Integrations
