@@ -227,5 +227,21 @@ echo "Pushing..."
 git -C "$REPO_ROOT" push
 git -C "$REPO_ROOT" push --tags
 
+# Mirror to the public GitHub remote if present. origin is the ms2 self-host;
+# github is the public mirror, which `git push` (upstream = origin) never touches.
+# Non-fatal: the release is already committed, tagged, and live on origin by now,
+# so a mirror hiccup warns rather than failing the release.
+if git -C "$REPO_ROOT" remote | grep -qx github; then
+  echo ""
+  echo "Mirroring to github..."
+  branch="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
+  if git -C "$REPO_ROOT" push github "$branch" && git -C "$REPO_ROOT" push github --tags; then
+    echo "  mirrored to github"
+  else
+    echo "  WARNING: github mirror push failed -- release is live on origin;" >&2
+    echo "           run: git push github $branch --tags" >&2
+  fi
+fi
+
 echo ""
 echo "Released v$NEW"
