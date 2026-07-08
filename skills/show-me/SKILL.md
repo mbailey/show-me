@@ -29,7 +29,7 @@ The plugin ships two top-level commands:
 - User asks to open/display a file or URL (**For URLs: ALWAYS check Chrome MCP first**)
 - User says "show me" or "look at my screen"
 - User says "show yourself" / "where are you" / "I can't find you" (agent self-focus) → `show-me pane:self`
-- Working in voice mode (hands-free interaction)
+- Working in voice mode (hands-free interaction) — **highlight first, then narrate** the range you showed; see [Voice Mode](references/voice-mode.md)
 - Need to verify what user is viewing
 
 ## Showing URLs - Default Behavior
