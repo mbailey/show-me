@@ -147,5 +147,3 @@ AI (voice): "23 ran, 21 passed. Two failures, both in test_auth.py —
 5. **Hold for reading** — `--hold 60` (or longer) when the user needs time; the
    sentinel keeps focus from snapping back to you.
 6. **`look-at` to confirm** — use it to verify shared context before you narrate.
-</content>
-</invoke>
