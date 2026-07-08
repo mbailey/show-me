@@ -29,7 +29,7 @@ The plugin ships two top-level commands:
 - User asks to open/display a file or URL (**For URLs: ALWAYS check Chrome MCP first**)
 - User says "show me" or "look at my screen"
 - User says "show yourself" / "where are you" / "I can't find you" (agent self-focus) → `show-me pane:self`
-- Working in voice mode (hands-free interaction)
+- Working in voice mode (hands-free interaction) — **highlight first, then narrate** the range you showed; see [Guided Voice Walkthroughs](references/walkthrough.md)
 - Need to verify what user is viewing
 
 ## Showing URLs - Default Behavior
@@ -143,7 +143,7 @@ look-at window                       # All panes in window
 
 - [Commands](references/commands.md) - Full command reference
 - [Layouts](references/layouts.md) - Layout options and `SHOW_LAYOUT`
-- [Voice Mode](references/voice-mode.md) - Hands-free workflows
+- [Guided Voice Walkthroughs](references/walkthrough.md) - Voice show-and-tell: the highlight-then-narrate loop, walkthrough etiquette, prepared tours
 - [Troubleshooting](references/troubleshooting.md) - Common issues
 
 ## Chrome Browser Integration (Reference)
