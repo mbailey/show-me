@@ -45,6 +45,20 @@ PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
 SHOW_BIN="$REPO_ROOT/bin/show-me"
 CHANGELOG="$REPO_ROOT/CHANGELOG.md"
 
+# SHOW-125 made bin/show-me a symlink to the canonical script under skills/.
+# Resolve it to the real file so the VERSION bump below lands in -- and stages --
+# the canonical script. A plain `mv tmp bin/show-me` would replace the symlink
+# with a regular-file copy, bumping a dead file while the real script stayed
+# stale (and quietly breaking the single-source layout).
+if [[ -L "$SHOW_BIN" ]]; then
+  _link="$(readlink "$SHOW_BIN")"
+  if [[ "$_link" = /* ]]; then
+    SHOW_BIN="$_link"
+  else
+    SHOW_BIN="$(cd "$(dirname "$SHOW_BIN")/$(dirname "$_link")" && pwd)/$(basename "$_link")"
+  fi
+fi
+
 for f in "$PLUGIN_JSON" "$SHOW_BIN"; do
   [[ -f "$f" ]] || { echo "Error: missing $f" >&2; exit 1; }
 done
