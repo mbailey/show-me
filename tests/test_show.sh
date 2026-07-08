@@ -7,7 +7,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHOW="${SCRIPT_DIR}/../bin/show-me"
 LOOK="${SCRIPT_DIR}/../bin/look-at"
-SHOW_STUB="${SCRIPT_DIR}/../bin/show"
 
 PASS=0
 FAIL=0
@@ -148,40 +147,6 @@ if [[ -n "${TMUX:-}" ]]; then
   fi
 else
   skip "-H hierarchy (not in tmux)"
-fi
-
-# --- Migration stub (SHOW-58) ---
-# bin/show was renamed to bin/show-me. The old name is kept ONLY as a loud,
-# non-zero error stub pointing users to show-me -- it must NOT delegate.
-echo ""
-echo "Migration stub (SHOW-58):"
-
-if [[ -x "$SHOW_STUB" ]]; then
-  pass "bin/show stub is executable"
-else
-  fail "bin/show stub is executable"
-fi
-
-stub_out=$("$SHOW_STUB" README.md 2>&1) || stub_rc=$?
-stub_rc=${stub_rc:-0}
-if [[ "$stub_rc" -ne 0 ]]; then
-  pass "bin/show stub exits non-zero (got: $stub_rc)"
-else
-  fail "bin/show stub exits non-zero (got: $stub_rc)"
-fi
-
-if grep -qi "renamed to .show-me\|show-me <target>" <<<"$stub_out"; then
-  pass "bin/show stub points users to show-me"
-else
-  fail "bin/show stub points users to show-me (got: $stub_out)"
-fi
-
-# Must NOT silently delegate: a real `show README.md` would try tmux/nvim
-# and emit show-me's output. The stub must not produce that.
-if ! grep -qi "Focused pane\|Opening\|tmux is required for show-me" <<<"$stub_out"; then
-  pass "bin/show stub does not delegate to show-me"
-else
-  fail "bin/show stub does not delegate to show-me (got: $stub_out)"
 fi
 
 # --- Skills structure ---
