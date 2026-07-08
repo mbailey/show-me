@@ -20,6 +20,7 @@ The plugin ships two top-level commands:
 | `show-me <file>` | `show-me main.py:10-20` | Open file highlighting line range |
 | `show-me <url>` | `show-me github.com` | Open URL in browser |
 | `show-me "cmd:..."` | `show-me "cmd:git log"` | Run command in shell pane |
+| `show-me pane:self` | `show-me pane:self` | **Agent self-focus** — pull the user's focus to your own pane ("show yourself" / "where are you"). Uses `$TMUX_PANE` |
 | `look-at` | `look-at -l 100` | Capture pane with last 100 lines of scrollback |
 | `look-at -H` | `look-at -H` | Show tmux hierarchy only |
 
@@ -27,6 +28,7 @@ The plugin ships two top-level commands:
 
 - User asks to open/display a file or URL (**For URLs: ALWAYS check Chrome MCP first**)
 - User says "show me" or "look at my screen"
+- User says "show yourself" / "where are you" / "I can't find you" (agent self-focus) → `show-me pane:self`
 - Working in voice mode (hands-free interaction)
 - Need to verify what user is viewing
 
@@ -114,7 +116,7 @@ tmux capture-pane -p -t %37        # read the output
 Prefer `--format json` over scraping prose. Fields: `pane` (handle for
 `tmux capture-pane`/`send-keys`), `session`/`window` (full names),
 `created` (new vs reused), `status` (`alive`/`exited:<code>`/`unknown`),
-`cmd`. See `docs/commands.md` for the full reference.
+`cmd`. See `references/commands.md` for the full reference.
 
 ### File Syntax Variants
 
@@ -139,9 +141,10 @@ look-at window                       # All panes in window
 
 ## Documentation
 
-- [Commands](docs/commands.md) - Full command reference
-- [Voice Mode](docs/voice-mode.md) - Hands-free workflows
-- [Troubleshooting](docs/troubleshooting.md) - Common issues
+- [Commands](references/commands.md) - Full command reference
+- [Layouts](references/layouts.md) - Layout options and `SHOW_LAYOUT`
+- [Voice Mode](references/voice-mode.md) - Hands-free workflows
+- [Troubleshooting](references/troubleshooting.md) - Common issues
 
 ## Chrome Browser Integration (Reference)
 
