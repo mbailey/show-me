@@ -496,6 +496,34 @@ get_shell_pane() {
   tmux list-panes -t "${session}:${window}" -F "#{pane_id}" 2>/dev/null | tail -1
 }
 
+# Highlight an inclusive line range with a passive buffer extmark.
+#
+# Replaces the old live visual-line selection (":<start><CR>V<end>G"), which was
+# interactive editor state (SHOW-131): the cursor was one end of the selection,
+# so scrolling extended it and any keypress ended it. An extmark on a dedicated
+# namespace is a passive decoration that survives scrolling and keypresses.
+#
+# One namespace ('show_me_highlight') is cleared before each apply, so re-running
+# show-me MOVES the highlight to the new range instead of accumulating extmarks.
+# line_hl_group highlights the full line (line-wise), matching the old
+# visual-line look. The cursor moves to <start> (range scrolled into view) but
+# the editor stays in NORMAL mode — no visual selection.
+#
+# Args: socket_path start_line end_line (start/end must already be validated ints)
+highlight_line_range() {
+  local socket_path="$1"
+  local start_line="$2"
+  local end_line="$3"
+  local lua
+  # start_line/end_line are validated as ^[0-9]+$ at every call site, so they are
+  # safe to interpolate into the Lua expression. The range is clamped to the
+  # buffer's line count so an out-of-range end never errors.
+  printf -v lua '%s' "local b=vim.api.nvim_get_current_buf(); local ns=vim.api.nvim_create_namespace('show_me_highlight'); vim.api.nvim_buf_clear_namespace(b,ns,0,-1); local n=vim.api.nvim_buf_line_count(b); local s=math.max(${start_line},1); local e=math.min(${end_line},n); for i=s,e do vim.api.nvim_buf_set_extmark(b,ns,i-1,0,{line_hl_group='Visual'}) end; vim.api.nvim_win_set_cursor(0,{s,0}); vim.cmd('normal! zz')"
+  # <C-\><C-n> forces normal mode from any mode before running the Lua; no visual
+  # selection is ever entered, so the highlight is a passive decoration.
+  nvim --server "$socket_path" --remote-send "<C-\\><C-n>:lua ${lua}<CR>" 2>/dev/null
+}
+
 # Open file in Neovim
 handle_file() {
   local target="$1"
@@ -585,8 +613,8 @@ handle_file() {
       nvim --server "$socket_path" --remote "$file_path" 2>/dev/null
 
       if [[ -n "$end_line" && "$end_line" =~ ^[0-9]+$ ]]; then
-        # Line range: use visual line mode to highlight
-        nvim --server "$socket_path" --remote-send ":${start_line}<CR>V${end_line}G" 2>/dev/null
+        # Line range: passive extmark highlight (survives scroll/keypress)
+        highlight_line_range "$socket_path" "$start_line" "$end_line"
         echo "Opened $file_path highlighting lines $start_line-$end_line in $display_location"
       elif [[ -n "$start_line" && "$start_line" =~ ^[0-9]+$ ]]; then
         # Single line: jump to line
@@ -616,8 +644,8 @@ handle_file() {
     if wait_for_nvim_socket "$socket_path" "$((SHOW_NVIM_STARTUP_TIMEOUT * 5))" 0.2; then
       # Socket ready, now jump to line/range if specified
       if [[ -n "$end_line" && "$end_line" =~ ^[0-9]+$ ]]; then
-        # Line range: use visual line mode to highlight
-        nvim --server "$socket_path" --remote-send ":${start_line}<CR>V${end_line}G" 2>/dev/null
+        # Line range: passive extmark highlight (survives scroll/keypress)
+        highlight_line_range "$socket_path" "$start_line" "$end_line"
         echo "Opened $file_path highlighting lines $start_line-$end_line in $display_location"
       elif [[ -n "$start_line" && "$start_line" =~ ^[0-9]+$ ]]; then
         # Single line: jump to line
