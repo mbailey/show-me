@@ -30,15 +30,25 @@ make release BUMP=2.4.0       # explicit version
 The flow:
 
 1. Refuses to run on a dirty working tree.
-2. Updates `.claude-plugin/plugin.json` (`jq` -> temp file -> `mv`).
-3. Updates `bin/show-me` `VERSION="..."` line (`sed -i`, BSD-compatible on macOS).
-4. Promotes `## [Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` and
+2. **Minor-bump nudge**: if `## [Unreleased]` has an `### Added` section (i.e.
+   features shipped) but you're cutting a *patch*, it stops and asks you to
+   confirm -- SemVer wants a minor for new features. Re-run with `BUMP=minor`,
+   or pass `--allow-patch` to force the patch. (v3.0.3 shipped features as a
+   patch; this guards the next one.)
+3. Updates `.claude-plugin/plugin.json` (`jq` -> temp file -> `mv`).
+4. Updates the canonical `skills/show-me/scripts/show-me` `VERSION="..."` line.
+   `bin/show-me` is a symlink to that script, so the release resolves the
+   symlink first and writes the real file (temp file -> `mv`, BSD/macOS-safe) --
+   the symlink itself is preserved, never clobbered into a copy.
+5. Promotes `## [Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` and
    inserts a fresh `## [Unreleased]` above it.
-5. Runs `make test` -- the drift check is one of the assertions, so the release
+6. Runs `make test` -- the drift check is one of the assertions, so the release
    cannot ship if the bump didn't take.
-6. `git add` plugin.json + bin/show-me (+ CHANGELOG.md if updated).
-7. `git commit -m "Release vX.Y.Z"` -- single atomic commit.
-8. `git tag -a vX.Y.Z` and `git push` (commits and tags).
+7. `git add` plugin.json + the canonical script (+ CHANGELOG.md if updated).
+8. `git commit -m "Release vX.Y.Z"` -- single atomic commit.
+9. `git tag -a vX.Y.Z`, `git push` to `origin` (commits + tags), then mirrors the
+   branch + tags to the `github` remote if one exists (non-fatal -- a mirror
+   failure warns but doesn't fail the release, which is already live on origin).
 
 ## Dry-run
 

@@ -13,6 +13,7 @@
 #   bin/release 2.4.0          # set explicit version
 #   bin/release --dry-run 2.4.0  # update files, skip git ops (for testing)
 #   bin/release --allow-empty patch  # release even if [Unreleased] is empty
+#   bin/release --allow-patch patch  # skip the minor-bump nudge (patch despite ### Added)
 #
 # Contract: do NOT edit VERSION in bin/show-me or .version in plugin.json by hand.
 # This script is the single source of truth for bumping both.
@@ -21,12 +22,14 @@ set -o nounset -o pipefail -o errexit
 
 DRY_RUN=0
 ALLOW_EMPTY=0
+ALLOW_PATCH=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)     DRY_RUN=1; shift ;;
     --allow-empty) ALLOW_EMPTY=1; shift ;;
+    --allow-patch) ALLOW_PATCH=1; shift ;;
     -h|--help)
-      sed -n '1,17p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '1,18p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     -*)
@@ -159,6 +162,39 @@ NEW="$(bump "$CURRENT" "$ARG")"
 if ! [[ "$NEW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Error: '$NEW' is not a valid X.Y.Z version" >&2
   exit 1
+fi
+
+# Minor-bump nudge: if [Unreleased] ships features (an '### Added' section) but
+# this is a PATCH bump, stop and confirm -- SemVer wants a minor. v3.0.3 went out
+# as a patch despite shipping features (a new env var + alias); this catches the
+# next one. Bypass with --allow-patch, or do the right thing with BUMP=minor.
+IFS=. read -r _cmaj _cmin _cpat <<< "$CURRENT"
+IFS=. read -r _nmaj _nmin _npat <<< "$NEW"
+if [[ $ALLOW_PATCH -eq 0 && "$_nmaj" == "$_cmaj" && "$_nmin" == "$_cmin" && "$_npat" -gt "$_cpat" ]]; then
+  has_added=""
+  [[ -f "$CHANGELOG" ]] && has_added=$(awk '
+    /^## \[Unreleased\]/ { in_u = 1; next }
+    in_u && /^## \[/     { exit }
+    in_u && /^### Added/  { print; exit }
+  ' "$CHANGELOG")
+  if [[ -n "$has_added" ]]; then
+    suggested="$(bump "$CURRENT" minor)"
+    echo ""
+    echo "Warning: [Unreleased] has an '### Added' section (new features), but this is"
+    echo "         a PATCH bump ($CURRENT -> $NEW). SemVer suggests a minor bump"
+    echo "         ($CURRENT -> $suggested)."
+    if [[ $DRY_RUN -eq 1 ]]; then
+      echo "         (--dry-run: not prompting; pass --allow-patch to silence.)"
+    else
+      printf "Cut a PATCH release anyway? [y/N]: "
+      read -r ans
+      [[ "$ans" =~ ^[Yy]$ ]] || {
+        echo "Aborted. Re-run with BUMP=minor (make release BUMP=minor)," >&2
+        echo "        or --allow-patch to force a patch despite the Added section." >&2
+        exit 1
+      }
+    fi
+  fi
 fi
 
 echo "Bumping $CURRENT -> $NEW"
