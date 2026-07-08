@@ -47,7 +47,7 @@ claude --plugin-dir /path/to/show-me
 Or install via a marketplace that includes show-me:
 
 ```bash
-/plugin marketplace add mbailey/plugins
+/plugin marketplace add mbailey/skills
 /plugin install show-me@mbailey
 ```
 
