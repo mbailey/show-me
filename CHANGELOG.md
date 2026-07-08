@@ -6,6 +6,20 @@ All notable changes to show-me will be documented in this file.
 
 ### Fixed
 
+- **Line-range highlights survive scrolling and keypresses (SHOW-131).**
+  `show-me <file>:<start>-<end>` highlighted the range by driving Neovim into
+  visual-line mode (`:<start><CR>V<end>G`). A visual selection is interactive
+  editor state — the cursor is one end of it — so scrolling extended the
+  highlight and the next keypress cleared it (found live during a voice
+  walkthrough). The highlight is now a passive **buffer extmark** on a
+  dedicated `show_me_highlight` namespace: it stays fixed on the requested
+  lines through scrolling and keypresses, and re-running `show-me` on the same
+  file **moves** the highlight to the new range (the namespace is cleared
+  before each apply). The cursor moves to the start line but the editor is left
+  in normal mode — no lingering visual selection. Both the reuse and cold-start
+  code paths share one `highlight_line_range` helper, and a regression test
+  guards against the visual-selection keystrokes returning.
+
 - **Rapid/concurrent `show-me <file>` calls no longer each spawn a new nvim
   pane (SHOW-110).** The SHOW-22 pane-reuse detection was safe for human-paced
   use but not for a high-rate caller (e.g. taskmaster's show-on-create firing
