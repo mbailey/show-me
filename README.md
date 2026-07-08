@@ -47,9 +47,12 @@ ln -s "$(pwd)/show-me/bin/look-at" ~/.local/bin/look-at
 > **Renamed in SHOW-58:** the commands are now `show-me` and `look-at` (was
 > `show` / `look`). The old names clashed with system binaries — `look` was
 > silently shadowed by util-linux's dictionary `look`. The namespaced names
-> have no such clash. The old `show`/`look` binaries are gone (the temporary
-> `show` migration stub was removed in SHOW-125) — calling either now is a
-> plain command-not-found. See
+> have no such clash. The old `show` binary is gone (its temporary migration
+> stub was removed in SHOW-125) — calling it now is a plain command-not-found.
+> `look` was never one of ours to remove — without our binary claiming the
+> name, `look` now falls through to the system's util-linux dictionary lookup
+> tool (not command-not-found, and not `look-at` either — use `look-at`
+> explicitly). See
 > [`skills/show-me/references/troubleshooting.md`](skills/show-me/references/troubleshooting.md).
 
 ## Installation
