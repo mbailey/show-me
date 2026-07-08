@@ -789,7 +789,7 @@ fi
 echo ""
 echo "Docs drift check (SHOW_* env vars):"
 
-commands_doc="${SCRIPT_DIR}/../docs/commands.md"
+commands_doc="${SCRIPT_DIR}/../skills/show-me/references/commands.md"
 if [[ -f "$commands_doc" ]]; then
   # Extract SHOW_* names from --help "Environment:" block
   help_vars=$("$SHOW" --help 2>/dev/null \
