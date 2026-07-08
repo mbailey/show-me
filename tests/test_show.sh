@@ -851,6 +851,60 @@ else
   skip "docs drift check (docs/commands.md missing)"
 fi
 
+# --- SHOW-131: extmark highlight, not a live visual selection ---
+# The line-range highlight must be a passive buffer extmark that survives
+# scrolling and keypresses, NOT a live visual-line selection
+# (":<start><CR>V<end>G") whose cursor is one end of the selection (which
+# extended on scroll and died on keypress). Regression guard: source-scan
+# bin/show-me for the fix's shape.
+echo ""
+echo "SHOW-131 extmark highlight:"
+
+# The old visual-mode keystrokes must be gone everywhere in the script.
+if grep -qE 'V\$\{end_line\}G' "$SHOW"; then
+  fail "highlight still uses a live visual-line selection (V\${end_line}G)"
+else
+  pass "no live visual-line selection keystrokes remain"
+fi
+
+# A single shared helper factors the highlight so the two call sites can't drift.
+if grep -qE '^highlight_line_range\(\) \{' "$SHOW"; then
+  pass "highlight_line_range helper exists"
+
+  hlr_block=$(awk '/^highlight_line_range\(\) \{/,/^}/' "$SHOW")
+  # Dedicated namespace, cleared before each apply, so reuse MOVES the highlight.
+  if grep -q 'show_me_highlight' <<<"$hlr_block" \
+     && grep -q 'nvim_buf_clear_namespace' <<<"$hlr_block"; then
+    pass "helper clears the show_me_highlight namespace (reuse moves the highlight)"
+  else
+    fail "helper missing show_me_highlight namespace clear"
+  fi
+
+  # Applies a buffer extmark over the range.
+  if grep -q 'nvim_buf_set_extmark' <<<"$hlr_block"; then
+    pass "helper applies a buffer extmark"
+  else
+    fail "helper does not use nvim_buf_set_extmark"
+  fi
+
+  # Never enters visual mode.
+  if grep -qE 'V\$\{end_line\}G' <<<"$hlr_block"; then
+    fail "helper still enters visual mode"
+  else
+    pass "helper stays in normal mode (no visual selection)"
+  fi
+else
+  fail "highlight_line_range helper exists"
+fi
+
+# Both line-range call sites delegate to the helper.
+hlr_calls=$(grep -cE 'highlight_line_range "\$socket_path"' "$SHOW")
+if [[ "$hlr_calls" -eq 2 ]]; then
+  pass "both call sites use highlight_line_range ($hlr_calls found)"
+else
+  fail "expected 2 highlight_line_range call sites, found $hlr_calls"
+fi
+
 # --- Summary ---
 echo ""
 echo "===================="
