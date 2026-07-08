@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [3.0.3] - 2026-07-08
+
 ### Fixed
 
 - **Line-range highlights survive scrolling and keypresses (SHOW-131).**
