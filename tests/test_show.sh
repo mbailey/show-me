@@ -111,11 +111,14 @@ expect_classify "~/notes.md" FILE
 # Filenames that look like domains must NOT be opened as URLs.
 # Regression guard for the readme.md TLD typo-squat redirect chain
 # (show README.md -> https://README.md/ -> sponsored junk site).
+# NOTE: index.html is intentionally excluded here -- as of SHOW-106, .html/.htm
+# targets DO route to handle_url (by design: rendered-format-to-browser), so
+# it belongs in the dedicated "HTML browser routing (SHOW-106)" section below,
+# not in this handle_file-classification regression guard.
 expect_classify "README.md" FILE
 expect_classify "package.json" FILE
 expect_classify "tsconfig.json" FILE
 expect_classify "pyproject.toml" FILE
-expect_classify "index.html" FILE
 expect_classify "config.yaml" FILE
 expect_classify "main.py" FILE
 expect_classify "app.js" FILE
@@ -763,6 +766,167 @@ if [[ -n "${TMUX:-}" ]]; then
   rm -rf "$cwd_tmp"
 else
   skip "--cwd integration tests (not in tmux)"
+fi
+
+# --- HTML defaults to the browser; --editor / SHOW_HTML_OPEN escape hatches (SHOW-106) ---
+echo ""
+echo "HTML browser routing (SHOW-106):"
+
+# --help documents the new flag and env var.
+if "$SHOW" --help 2>&1 | grep -qE -- '--editor'; then
+  pass "--help documents --editor"
+else
+  fail "--help documents --editor"
+fi
+
+if "$SHOW" --help 2>&1 | grep -q 'SHOW_HTML_OPEN'; then
+  pass "--help documents SHOW_HTML_OPEN"
+else
+  fail "--help documents SHOW_HTML_OPEN"
+fi
+
+# Invalid SHOW_HTML_OPEN is rejected before any tmux pane is touched (no tmux
+# session needed -- mirrors the --format bogus check above).
+hopen_out=$(SHOW_HTML_OPEN=bogus "$SHOW" "cmd:true" 2>&1) || true
+if grep -q "Invalid SHOW_HTML_OPEN: bogus" <<<"$hopen_out"; then
+  pass "SHOW_HTML_OPEN rejects an invalid value with a clear error"
+else
+  fail "SHOW_HTML_OPEN rejects an invalid value (got: $hopen_out)"
+fi
+
+# Unit tests for the routing helpers. $SHOW was already sourced above (Layout
+# validation section), so is_html_target / should_open_html_in_browser /
+# resolve_html_file_url are in scope here.
+if is_html_target "foo.html" && is_html_target "foo.htm" && ! is_html_target "foo.txt"; then
+  pass "is_html_target matches .html/.htm only"
+else
+  fail "is_html_target matches .html/.htm only"
+fi
+
+saved_html_open="$SHOW_HTML_OPEN"
+SHOW_HTML_OPEN="browser"
+if should_open_html_in_browser; then
+  pass "should_open_html_in_browser true when SHOW_HTML_OPEN=browser"
+else
+  fail "should_open_html_in_browser true when SHOW_HTML_OPEN=browser"
+fi
+SHOW_HTML_OPEN="editor"
+if ! should_open_html_in_browser; then
+  pass "should_open_html_in_browser false when SHOW_HTML_OPEN=editor"
+else
+  fail "should_open_html_in_browser false when SHOW_HTML_OPEN=editor"
+fi
+SHOW_HTML_OPEN="$saved_html_open"
+
+if [[ "$(resolve_html_file_url "file:///abs/foo.html")" == "file:///abs/foo.html" ]]; then
+  pass "resolve_html_file_url passes an existing file:// URL through unchanged"
+else
+  fail "resolve_html_file_url passes an existing file:// URL through unchanged"
+fi
+
+rhu_tmp=$(mktemp -d)
+rhu_tmp_real=$(cd -- "$rhu_tmp" && pwd -P)
+rhu_out=$(cd "$rhu_tmp" && resolve_html_file_url "bar.html")
+if [[ "$rhu_out" == "file://${rhu_tmp_real}/bar.html" ]]; then
+  pass "resolve_html_file_url resolves a bare relative path to an absolute file:// URL"
+else
+  fail "resolve_html_file_url resolves a bare relative path (got: $rhu_out, expected: file://${rhu_tmp_real}/bar.html)"
+fi
+rm -rf "$rhu_tmp"
+
+# Behavioral routing, via the same classify_target-style stub pattern used
+# above: source $SHOW in a subshell, stub the handlers, and observe which one
+# detect_and_handle calls (and with what argument -- so a browser-routed
+# file:// URL can be told apart from a bare-domain classification).
+classify_html() {
+  local target="$1" html_open="${2:-}"
+  (
+    [[ -n "$html_open" ]] && SHOW_HTML_OPEN="$html_open"
+    # shellcheck disable=SC1090
+    source "$SHOW" >/dev/null 2>&1 || true
+    # shellcheck disable=SC2329
+    handle_url()  { echo "URL:$1"; }
+    # shellcheck disable=SC2329
+    handle_file() { echo "FILE:$1"; }
+    detect_and_handle "$target" "" "" "" ""
+  )
+}
+
+html_tmp=$(mktemp -d)
+touch "$html_tmp/foo.html" "$html_tmp/foo.htm" "$html_tmp/foo.md"
+html_tmp_real=$(cd -- "$html_tmp" && pwd -P)
+
+# 1. bare .html (file exists), default (browser) -> handle_url with an
+#    absolute file:// URL.
+hc_out=$(cd "$html_tmp" && classify_html "foo.html")
+if [[ "$hc_out" == "URL:file://${html_tmp_real}/foo.html" ]]; then
+  pass "bare foo.html (default) routes to the browser as a file:// URL"
+else
+  fail "bare foo.html (default) routes to the browser (got: $hc_out)"
+fi
+
+# 2. bare .htm behaves the same as .html.
+hc_out=$(cd "$html_tmp" && classify_html "foo.htm")
+if [[ "$hc_out" == "URL:file://${html_tmp_real}/foo.htm" ]]; then
+  pass "bare foo.htm (default) routes to the browser as a file:// URL"
+else
+  fail "bare foo.htm (default) routes to the browser (got: $hc_out)"
+fi
+
+# 3. SHOW_HTML_OPEN=editor keeps bare .html on the handle_file (Neovim) path.
+hc_out=$(cd "$html_tmp" && classify_html "foo.html" editor)
+if [[ "$hc_out" == "FILE:foo.html" ]]; then
+  pass "SHOW_HTML_OPEN=editor routes foo.html to the editor (handle_file)"
+else
+  fail "SHOW_HTML_OPEN=editor routes foo.html to the editor (got: $hc_out)"
+fi
+
+# 4. Non-HTML files are unaffected regardless of SHOW_HTML_OPEN.
+hc_out=$(cd "$html_tmp" && classify_html "foo.md")
+if [[ "$hc_out" == "FILE:foo.md" ]]; then
+  pass "non-HTML foo.md is unaffected (still handle_file)"
+else
+  fail "non-HTML foo.md is unaffected (got: $hc_out)"
+fi
+
+rm -rf "$html_tmp"
+
+# 5. file://...html routes to the browser too (already-absolute path passed
+#    through unchanged by resolve_html_file_url).
+hc_out=$(classify_html "file:///tmp/show106-nonexistent/foo.html")
+if [[ "$hc_out" == "URL:file:///tmp/show106-nonexistent/foo.html" ]]; then
+  pass "file://...html routes to the browser, path unchanged"
+else
+  fail "file://...html routes to the browser (got: $hc_out)"
+fi
+
+# 6. file://...html + SHOW_HTML_OPEN=editor stays on the handle_file path.
+hc_out=$(classify_html "file:///tmp/show106-nonexistent/foo.html" editor)
+if [[ "$hc_out" == "FILE:file:///tmp/show106-nonexistent/foo.html" ]]; then
+  pass "file://...html + SHOW_HTML_OPEN=editor routes to the editor"
+else
+  fail "file://...html + SHOW_HTML_OPEN=editor routes to the editor (got: $hc_out)"
+fi
+
+# 7. An already-a-URL https target ending in .html is unaffected (unchanged
+#    pre-existing behavior -- classified as URL before the HTML check ever runs).
+hc_out=$(classify_html "https://example.com/foo.html")
+if [[ "$hc_out" == "URL:https://example.com/foo.html" ]]; then
+  pass "https://...html (already a URL) is unaffected"
+else
+  fail "https://...html (already a URL) is unaffected (got: $hc_out)"
+fi
+
+# 8. --editor CLI flag maps to SHOW_HTML_OPEN=editor for the run (behavioral,
+#    no tmux needed -- validation/parsing happens before any pane is touched).
+# We can't easily intercept handle_file from outside the process, so assert
+# indirectly: --editor + an invalid SHOW_HTML_OPEN env still parses (the flag
+# overwrites the env value before validation runs).
+editor_out=$(SHOW_HTML_OPEN=bogus "$SHOW" --editor "cmd:true" 2>&1) || true
+if ! grep -q "Invalid SHOW_HTML_OPEN" <<<"$editor_out"; then
+  pass "--editor overrides an invalid SHOW_HTML_OPEN before validation"
+else
+  fail "--editor overrides an invalid SHOW_HTML_OPEN before validation (got: $editor_out)"
 fi
 
 # --- Version drift check (SHOW-64) ---

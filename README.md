@@ -68,6 +68,8 @@ show-me path/to/file.py          # Open file in Neovim
 show-me path/to/file.py:42       # Open file at line 42
 show-me path/to/file.py:10-30    # Highlight lines 10-30 (preferred for code)
 show-me path/to/file.py#L42      # URL-fragment style (same as :42)
+show-me index.html               # HTML opens in the browser (rendered), not Neovim
+show-me --editor index.html      # Escape hatch: open the HTML source in Neovim
 show-me https://example.com      # Open URL in browser
 show-me "cmd:git status"         # Run command in shell pane
 show-me diff                     # DiffView of unstaged changes
@@ -76,6 +78,12 @@ show-me "diff:main -- src/"      # DiffView vs main, scoped to src/
 show-me pane:%23                 # Focus tmux pane (cross-session)
 show-me pane:self                # Focus your own pane (agent self-focus)
 ```
+
+**HTML defaults to the browser.** `.html`/`.htm` targets (including
+`file://...html`) are treated as a rendered format: "show me this" means
+"let me see it", not "let me edit it". Use `--editor` for one call, or set
+`SHOW_HTML_OPEN=editor` to flip the default persistently, to open the HTML
+source in Neovim instead. Non-HTML files are unaffected.
 
 ### look-at
 
@@ -117,6 +125,7 @@ Environment variables (defaults shown):
 | `SHOW_FOCUS`       | `true`        | Switch focus to the show pane/window                   |
 | `SHOW_ZOOM`        | `true`        | Zoom the pane after showing (window mode only)         |
 | `SHOW_AUTO_ATTACH` | `true`        | Auto-attach the terminal if no tmux client is attached |
+| `SHOW_HTML_OPEN`   | `browser`     | Where `.html`/`.htm` targets open: `browser` or `editor`. `--editor` overrides for one call |
 
 For the full reference (every option, every flag), see [`docs/commands.md`](docs/commands.md)
 or run `show-me --help`.
