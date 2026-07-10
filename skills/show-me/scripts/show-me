@@ -145,7 +145,7 @@ Behavior:
   target; with no LAYOUT argument it re-applies the configured default
   layout (SHOW_LAYOUT, 'stacked' when unset). Must run inside tmux.
 
-  See docs/layouts.md for the full layout reference.
+  See skills/show-me/references/layouts.md for the full layout reference.
 
   All focus commands support cross-session switching. If the target pane
   or window is in a different tmux session, show-me will switch the client

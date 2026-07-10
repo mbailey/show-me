@@ -427,7 +427,7 @@ else
 fi
 
 # main() must parse a --restack flag.
-if grep -qE '^\s*--restack\)' "$SHOW"; then
+if grep -qE '^[[:space:]]*--restack\)' "$SHOW"; then
   pass "main(): --restack parsed in argument loop"
 else
   fail "main(): --restack not parsed in argument loop"
@@ -489,7 +489,7 @@ echo "restack_layout non-stacked mappings (SHOW-98 impl-003):"
 rl_block=$(awk '/^restack_layout\(\) \{/,/^}/' "$SHOW")
 
 # right/left must arrange main-vertical (alongside stacked, leader ~30% width).
-if grep -qE '^\s*stacked\|right\|left\)' <<<"$rl_block" \
+if grep -qE '^[[:space:]]*stacked\|right\|left\)' <<<"$rl_block" \
    && grep -q 'select-layout .* main-vertical' <<<"$rl_block" \
    && grep -q 'resize-pane .* -x 30%' <<<"$rl_block"; then
   pass "restack_layout(): stacked/right/left -> main-vertical + leader 30% width"
@@ -498,7 +498,7 @@ else
 fi
 
 # below/above must arrange main-horizontal, leader-relative.
-if grep -qE '^\s*below\|above\)' <<<"$rl_block" \
+if grep -qE '^[[:space:]]*below\|above\)' <<<"$rl_block" \
    && grep -q 'select-layout .* main-horizontal' <<<"$rl_block" \
    && grep -q 'resize-pane .* -y 70%' <<<"$rl_block"; then
   pass "restack_layout(): below/above -> main-horizontal + leader 70% height"
@@ -508,7 +508,7 @@ fi
 
 # Unsupported layout (window/here/other) -> clear message, non-zero, and no
 # destructive tmux call in that arm.
-default_arm=$(awk '/^\s*\*\)/,/;;/' <<<"$rl_block")
+default_arm=$(awk '/^[[:space:]]*\*\)/,/;;/' <<<"$rl_block")
 if grep -q 'does not support layout' <<<"$default_arm" \
    && grep -q 'return 1' <<<"$default_arm" \
    && ! grep -qE 'tmux (kill|select-layout|resize-pane)' <<<"$default_arm"; then
@@ -953,7 +953,7 @@ fi
 echo ""
 echo "Docs drift check (SHOW_* env vars):"
 
-commands_doc="${SCRIPT_DIR}/../docs/commands.md"
+commands_doc="${SCRIPT_DIR}/../skills/show-me/references/commands.md"
 if [[ -f "$commands_doc" ]]; then
   # Extract SHOW_* names from --help "Environment:" block
   help_vars=$("$SHOW" --help 2>/dev/null \
