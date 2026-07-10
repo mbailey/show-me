@@ -4,6 +4,22 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **HTML targets default to the browser, with editor escape hatches
+  (SHOW-106).** `show-me foo.html` (and `.htm`, and `file://...html`) now
+  opens the **rendered** page in the browser instead of the source in
+  Neovim — HTML is a rendered document format, and "show me this" should
+  mean "let me see it", not "let me edit it". Two escape hatches keep the
+  old behavior available: the `--editor` flag forces one call back to
+  Neovim, and `SHOW_HTML_OPEN=editor` flips the default persistently
+  (`SHOW_HTML_OPEN=browser`, the default, matches unset). Not a breaking
+  change — every other target type (`.md`, `.py`, URLs, `cmd:`, etc.) is
+  unaffected, and `--editor` is the one-call back-out. `handle_url`'s
+  scheme guard was relaxed to accept `file://` (previously only
+  `http(s)://`) so it doesn't mangle `file:///path/foo.html` into
+  `https://file:///path/foo.html`.
+
 ## [3.0.3] - 2026-07-08
 
 ### Fixed

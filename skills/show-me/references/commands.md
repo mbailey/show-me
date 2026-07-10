@@ -15,6 +15,9 @@ Targets:
   <file>:<start>-<end>     Highlight a line range (preferred for code sections)
   <file>#L<line>           Open file at specific line (URL fragment style)
   <file>#L<start>-<end>    Highlight a line range (URL fragment style)
+  <file>.html / .htm       Open in browser (rendered), not Neovim -- see
+                           --editor / SHOW_HTML_OPEN to open the source instead
+  file://...html           Same HTML routing as above
   http://... https://...   Open URL in browser
   cmd:<command>            Run command in shell pane
   pane:<id>                Focus tmux pane by ID (cross-session)
@@ -31,6 +34,8 @@ Options:
   --here                   Split pane (right for files, below for commands)
   --format VALUE           cmd: output format: human (default) or json
   --cwd PATH               Run cmd: targets in PATH (no-op for file/URL)
+  --editor                 Force .html/.htm targets to open in Neovim (the
+                           source) instead of the browser, for this call only
   --hold SECONDS           Hold visual focus for N seconds (default: 30)
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
@@ -61,6 +66,21 @@ The show-me command:
 - Falls back to starting Neovim in the "show" tmux session
 - Waits up to 3 seconds for Neovim socket to become available
 - Supports line numbers in both `:N` and `#LN` formats
+
+### HTML opens in the browser by default
+
+```bash
+show-me index.html                   # Rendered in the browser, not Neovim
+show-me file:///abs/path/index.html  # Same routing for file:// HTML targets
+show-me --editor index.html          # Escape hatch: open the source in Neovim
+SHOW_HTML_OPEN=editor show-me index.html  # Same, but persistent (env var)
+```
+
+`.html`/`.htm` is a rendered document format -- "show me this" means "let me
+see it", not "let me edit it" (SHOW-106). Precedence: `--editor` (always wins)
+> `SHOW_HTML_OPEN=editor` > default (`browser`). Non-HTML files are
+unaffected; `SHOW_HTML_OPEN` only ever changes routing for `.html`/`.htm`
+targets.
 
 ### Open URLs in browser
 
@@ -337,6 +357,7 @@ These mirror `bin/show-me --help`. The help text is canonical; this table follow
 | `SHOW_SPLIT_SIZE`  | (auto)        | Split pane percentage; overrides direction defaults (70% side, 30% top/bottom) |
 | `SHOW_FORMAT`      | `human`       | `cmd:` output format: `human` (line + `[pane %NN]`) or `json` (one-line handle) |
 | `SHOW_NVIM_STARTUP_TIMEOUT` | `10` | Seconds to wait for a newly started nvim to become responsive before giving up. Early-exits as soon as nvim answers; raise on slow machines or heavy configs (SHOW-110). |
+| `SHOW_HTML_OPEN`   | `browser`     | Where `.html`/`.htm` targets open: `browser` or `editor`. `--editor` overrides this for one call (SHOW-106). |
 
 ## Installation and Running Commands
 

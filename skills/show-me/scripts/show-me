@@ -18,6 +18,7 @@ SHOW_ZOOM="${SHOW_ZOOM:-true}"
 SHOW_LAYOUT="${SHOW_LAYOUT:-}"  # Empty resolves to 'stacked' in main() (SHOW-86). Explicit SHOW_LAYOUT=window restores the historical separate-window behavior.
 SHOW_SPLIT_SIZE="${SHOW_SPLIT_SIZE:-}"  # Split pane percentage (default: 70% side, 30% top/bottom)
 SHOW_FORMAT="${SHOW_FORMAT:-human}"  # Output format for cmd: handle. human = readable line + [pane %NN]; json = one-line machine handle (SHOW-92)
+SHOW_HTML_OPEN="${SHOW_HTML_OPEN:-browser}"  # 'browser' (default) or 'editor'. HTML targets (.html/.htm, incl. file://...html) open in the browser unless this is 'editor' or --editor is passed (SHOW-106).
 SHOW_CWD=""  # --cwd PATH: working directory for cmd: targets (SHOW-102). Empty = caller's cwd (unchanged behavior). No env var: set only via the flag.
 SHOW_NVIM_STARTUP_TIMEOUT="${SHOW_NVIM_STARTUP_TIMEOUT:-10}"  # Seconds to wait for a freshly started nvim to become responsive (SHOW-110). Early-exits the instant nvim answers, so a larger value only costs time on genuine startup failure. Raised from the old hard-coded 3s: cold starts with heavy configs (dashboard/LSP/treesitter) can exceed 3s, which made rapid callers spawn duplicate panes.
 
@@ -86,6 +87,9 @@ Targets:
   <file>:<start>-<end>     Open file highlighting line range
   <file>#L<line>           Open file at specific line (URL fragment style)
   <file>#L<start>-<end>    Open file highlighting line range
+  <file>.html / .htm       Open in browser (rendered), not Neovim -- see
+                           --editor / SHOW_HTML_OPEN to open the source instead
+  file://...html           Same HTML routing as above
   http://... https://...   Open URL in browser
   cmd:<command>            Run command in shell pane
   pane:<id>                Focus tmux pane by ID (cross-session)
@@ -114,6 +118,10 @@ Options:
                            cwd. No-op for file/URL targets. PATH must exist;
                            a missing directory is a hard error (no pane is
                            created).
+  --editor                 Force .html/.htm targets to open in Neovim (the
+                           source) instead of the browser, for this call
+                           only. Overrides SHOW_HTML_OPEN=browser and the
+                           built-in default. No effect on non-HTML targets.
   --no-focus               Don't switch focus to show window
   --no-zoom                Don't zoom the pane after showing
   --no-attach              Don't auto-attach terminal if no clients
@@ -146,8 +154,17 @@ Behavior:
   show-me only connects to Neovim instances it created, using sockets in a
   private directory for security.
 
+  HTML is treated as a rendered format: show-me <file>.html (or .htm, or
+  file://...html) opens it in the browser by default -- "show me this" means
+  "let me see it", not "let me edit it". Use --editor for one call, or set
+  SHOW_HTML_OPEN=editor to change the default persistently, to open the
+  HTML source in Neovim instead. Non-HTML files are unaffected.
+
 Examples:
   show-me README.md                    # Open in current session's show window
+  show-me index.html                   # Open in browser (rendered), not Neovim
+  show-me --editor index.html          # Open the HTML source in Neovim instead
+  SHOW_HTML_OPEN=editor show-me index.html  # Same, via persistent env var
   show-me -s main README.md            # Open in "main" session
   show-me -w editor file.txt           # Open in "editor" window
   show-me src/main.py:42               # Open at line 42
@@ -186,6 +203,9 @@ Environment:
   SHOW_FORMAT              cmd: output format: human (default) or json
   SHOW_NVIM_STARTUP_TIMEOUT Seconds to wait for a new nvim to become responsive
                            (default: 10). Raise on slow machines / heavy configs.
+  SHOW_HTML_OPEN           Where .html/.htm targets open: browser (default)
+                           or editor. --editor overrides this for one call.
+                           Example: SHOW_HTML_OPEN=editor show-me index.html
 
 EOF
 }
@@ -687,8 +707,10 @@ handle_file() {
 handle_url() {
   local url="$1"
 
-  # Ensure URL has scheme
-  if [[ ! "$url" =~ ^https?:// ]]; then
+  # Ensure URL has scheme. file:// is accepted as-is (SHOW-106: HTML targets
+  # are routed here as file:// URLs) -- only a bare/schemeless string gets
+  # https:// prepended.
+  if [[ ! "$url" =~ ^(https?|file):// ]]; then
     url="https://$url"
   fi
 
@@ -1258,6 +1280,52 @@ create_split_pane() {
   tmux split-window ${target_pane:+-t "$target_pane"} $flags -P -F '#{pane_id}'
 }
 
+# True if the target names an HTML document (by extension), regardless of
+# whether it's a bare path or a file:// URL. Used to decide browser vs
+# editor routing (SHOW-106) -- not a general content-type sniff.
+is_html_target() {
+  local target="$1"
+  [[ "$target" =~ \.(html|htm)$ ]]
+}
+
+# True if HTML targets should be routed to the browser right now (the
+# default). False when the editor escape hatch is active: --editor (which
+# sets SHOW_HTML_OPEN=editor for the run) or SHOW_HTML_OPEN=editor in the
+# environment.
+should_open_html_in_browser() {
+  [[ "$SHOW_HTML_OPEN" == "browser" ]]
+}
+
+# Resolve a target that will be passed to handle_url as a file:// URL.
+# Already-file://... targets pass through unchanged; bare paths are resolved
+# to an absolute path (same resolution style as handle_file) and prefixed.
+resolve_html_file_url() {
+  local target="$1"
+  if [[ "$target" =~ ^file:// ]]; then
+    printf '%s\n' "$target"
+    return 0
+  fi
+  local abs_path="$target"
+  if [[ ! "$abs_path" =~ ^/ ]]; then
+    abs_path="$(pwd)/$abs_path"
+  fi
+  abs_path=$(realpath "$abs_path" 2>/dev/null || echo "$abs_path")
+  printf 'file://%s\n' "$abs_path"
+}
+
+# Dispatch a target that would otherwise go straight to handle_file: HTML
+# targets (.html/.htm) route to the browser (rendered view) by default;
+# --editor or SHOW_HTML_OPEN=editor keep them on the existing handle_file
+# (Neovim source) path (SHOW-106).
+handle_file_or_html() {
+  local target="$1" session="$2" window="$3" pane="$4" layout="$5"
+  if is_html_target "$target" && should_open_html_in_browser; then
+    handle_url "$(resolve_html_file_url "$target")"
+    return
+  fi
+  handle_file "$target" "$session" "$window" "$pane" "$layout"
+}
+
 # Detect target type and dispatch to handler
 detect_and_handle() {
   local target="$1"
@@ -1292,13 +1360,13 @@ detect_and_handle() {
 
   # File URL (file://)
   if [[ "$target" =~ ^file:// ]]; then
-    handle_file "$target" "$session" "$window" "$pane" "$layout"
+    handle_file_or_html "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
   # Explicit path prefix (absolute, relative, or home) -- always a file
   if [[ "$target" =~ ^(/|\./|\.\./|~) ]]; then
-    handle_file "$target" "$session" "$window" "$pane" "$layout"
+    handle_file_or_html "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
@@ -1306,7 +1374,7 @@ detect_and_handle() {
   # `show README.md` from a project directory: README.md exists, so it's
   # handled as a file rather than the .md TLD.
   if [[ -e "$target" ]]; then
-    handle_file "$target" "$session" "$window" "$pane" "$layout"
+    handle_file_or_html "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
@@ -1317,7 +1385,7 @@ detect_and_handle() {
   # Bare-domain URLs ending in these extensions are still reachable via
   # `show https://example.md/` or `show example.md/path`.
   if [[ "$target" =~ \.(md|js|ts|tsx|jsx|py|rb|sh|go|rs|css|html|htm|json|toml|yml|yaml|xml|sql|conf|cfg|ini|log|txt|nix|lock|env|gitignore)$ ]]; then
-    handle_file "$target" "$session" "$window" "$pane" "$layout"
+    handle_file_or_html "$target" "$session" "$window" "$pane" "$layout"
     return
   fi
 
@@ -1406,6 +1474,13 @@ EOF
         SHOW_LAYOUT="here"
         shift
         ;;
+      --editor)
+        # Force HTML targets back to the editor (Neovim source) for this
+        # invocation, overriding SHOW_HTML_OPEN=browser and the built-in
+        # default (SHOW-106). No effect on non-HTML targets.
+        SHOW_HTML_OPEN="editor"
+        shift
+        ;;
       --restack)
         restack_mode=true
         # Optional layout argument: consume the next token only if it is
@@ -1463,6 +1538,16 @@ EOF
     human|json) ;;
     *)
       echo "Error: Invalid format: $SHOW_FORMAT (expected: human, json)" >&2
+      exit 1
+      ;;
+  esac
+
+  # Validate SHOW_HTML_OPEN (SHOW-106). Fail fast with an actionable message
+  # rather than silently falling back to a default -- mirrors SHOW_FORMAT above.
+  case "$SHOW_HTML_OPEN" in
+    browser|editor) ;;
+    *)
+      echo "Error: Invalid SHOW_HTML_OPEN: $SHOW_HTML_OPEN (expected: browser, editor)" >&2
       exit 1
       ;;
   esac

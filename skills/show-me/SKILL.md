@@ -18,6 +18,7 @@ The plugin ships two top-level commands:
 |---------|---------|-------------|
 | `show-me <file>` | `show-me README.md:42` | Open file in Neovim at line |
 | `show-me <file>` | `show-me main.py:10-20` | Open file highlighting line range |
+| `show-me <file>.html` | `show-me index.html` | Open in browser (rendered) — use `--editor` for the source |
 | `show-me <url>` | `show-me github.com` | Open URL in browser |
 | `show-me "cmd:..."` | `show-me "cmd:git log"` | Run command in shell pane |
 | `show-me pane:self` | `show-me pane:self` | **Agent self-focus** — pull the user's focus to your own pane ("show yourself" / "where are you"). Uses `$TMUX_PANE` |
@@ -86,6 +87,8 @@ show-me README.md                    # Open file (uses user's default layout)
 show-me src/main.py:42               # Open at line 42
 show-me src/main.py:10-20            # Open highlighting lines 10-20 (preferred)
 show-me bin/show-me#L124-162         # Highlight function (URL fragment syntax)
+show-me index.html                   # HTML opens in the browser (rendered), not Neovim
+show-me --editor index.html          # Escape hatch: open the HTML source in Neovim
 show-me https://github.com/repo      # Open URL
 show-me "cmd:git status"             # Run command
 show-me pane:15                      # Focus pane
