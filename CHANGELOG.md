@@ -4,6 +4,8 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-10
+
 ### Added
 
 - **HTML targets default to the browser, with editor escape hatches
