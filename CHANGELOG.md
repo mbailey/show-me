@@ -14,6 +14,16 @@ All notable changes to show-me will be documented in this file.
   pane. Discovery now resolves the window from `TMUX_PANE`, matching what
   the pane-creation and `--restack` paths already did.
 
+- **look-at now discovers show-me's nvim socket (issue #33).** `look-at`
+  read a hardcoded `/tmp/nvim-tmux-pane-<id>` path while `show-me` creates
+  sockets at `$(get_socket_dir)/nvim-show-pane-<id>`, so a file opened via
+  `show-me` was invisible to `look-at`'s socket read and it silently fell
+  back to a screen-scrape (working directory only — no file/cursor/mode).
+  `look-at` now derives the exact path `show-me` creates. The
+  `get_socket_dir` logic moved to a shared sourced helper
+  (`skills/show-me/scripts/lib/socket-dir.sh`) used by both scripts, so
+  producer and consumer cannot drift apart again.
+
 ## [3.1.0] - 2026-07-10
 
 ### Added

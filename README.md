@@ -3,6 +3,7 @@
 Visual context sharing between AI assistants and users.
 
 Like Morpheus to Neo — "show me":
+
 - **show-me**: AI displays content for the user (files in Neovim, URLs in browser, commands in tmux)
 - **look-at**: AI observes what the user is viewing (screen context, active panes)
 
@@ -141,28 +142,28 @@ show-me --restack                    # Re-tidy drifted panes back into the defau
 
 Environment variables (defaults shown):
 
-| Variable           | Default       | Purpose                                                |
-| ------------------ | ------------- | ------------------------------------------------------ |
-| `SHOW_SESSION`     | (auto-detect) | Target tmux session                                    |
-| `SHOW_WINDOW`      | `show`        | Window name for show output                            |
-| `SHOW_LAYOUT`      | `stacked`     | Default layout: `right`/`below`/`left`/`above`/`stacked`/`window` |
-| `SHOW_SPLIT_SIZE`  | (auto)        | Split percentage; overrides direction default          |
-| `SHOW_BROWSER`     | (auto)        | Browser for URLs (`Firefox`, `Chrome`, `Safari`, …)    |
-| `SHOW_FOCUS`       | `true`        | Switch focus to the show pane/window                   |
-| `SHOW_ZOOM`        | `true`        | Zoom the pane after showing (window mode only)         |
-| `SHOW_AUTO_ATTACH` | `true`        | Auto-attach the terminal if no tmux client is attached |
+| Variable           | Default       | Purpose                                                                                     |
+| ------------------ | ------------- | ------------------------------------------------------------------------------------------- |
+| `SHOW_SESSION`     | (auto-detect) | Target tmux session                                                                         |
+| `SHOW_WINDOW`      | `show`        | Window name for show output                                                                 |
+| `SHOW_LAYOUT`      | `stacked`     | Default layout: `right`/`below`/`left`/`above`/`stacked`/`window`                           |
+| `SHOW_SPLIT_SIZE`  | (auto)        | Split percentage; overrides direction default                                               |
+| `SHOW_BROWSER`     | (auto)        | Browser for URLs (`Firefox`, `Chrome`, `Safari`, …)                                         |
+| `SHOW_FOCUS`       | `true`        | Switch focus to the show pane/window                                                        |
+| `SHOW_ZOOM`        | `true`        | Zoom the pane after showing (window mode only)                                              |
+| `SHOW_AUTO_ATTACH` | `true`        | Auto-attach the terminal if no tmux client is attached                                      |
 | `SHOW_HTML_OPEN`   | `browser`     | Where `.html`/`.htm` targets open: `browser` or `editor`. `--editor` overrides for one call |
 
 A few less-common flags worth knowing about (full detail in `show-me --help`):
 
-| Flag                | Purpose                                                              |
-| -------------------- | --------------------------------------------------------------------- |
-| `--restack [LAYOUT]` | Re-apply a layout to panes already in the window (tidy drift), no new pane |
-| `--format VALUE`     | `cmd:` output format: `human` (default) or `json`                     |
+| Flag                 | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `--restack [LAYOUT]` | Re-apply a layout to panes already in the window (tidy drift), no new pane  |
+| `--format VALUE`     | `cmd:` output format: `human` (default) or `json`                           |
 | `--hold SECONDS`     | Hold visual focus for N seconds (default: 30); resists VoiceMode auto-focus |
-| `--cwd PATH`         | Run `cmd:` targets in `PATH` instead of the caller's cwd               |
-| `-p, --pane ID`      | Target a specific pane ID                                              |
-| `--no-attach`        | Don't auto-attach the terminal if no tmux client is attached           |
+| `--cwd PATH`         | Run `cmd:` targets in `PATH` instead of the caller's cwd                    |
+| `-p, --pane ID`      | Target a specific pane ID                                                   |
+| `--no-attach`        | Don't auto-attach the terminal if no tmux client is attached                |
 
 For the full reference (every option, every flag), see
 [`skills/show-me/references/commands.md`](skills/show-me/references/commands.md)
@@ -178,7 +179,10 @@ If nvim-remote is available, show-me uses it for enhanced features:
 - **Richer status**: More detailed editor state in `look-at` output
 
 Without nvim-remote, show-me:
-- Uses calculated socket paths: `/tmp/nvim-tmux-pane-<pane_id>`
+
+- Uses calculated socket paths: `<socket dir>/nvim-show-pane-<pane_id>`, where
+  the socket dir is the private temp directory (`$TMPDIR`, else
+  `$XDG_RUNTIME_DIR`, else `~/.local/run`) — not world-readable `/tmp`
 - Uses direct `nvim --server` commands for file operations
 - **All core features work fully**
 
@@ -203,7 +207,7 @@ We chose `show-me` as the user-facing verb on purpose:
 - **It spans multiple backends.** URLs go to a browser, files go to
   Neovim, panes are managed in tmux. A "tmux skill" wouldn't cover the
   browser/editor cases without bending the name out of shape.
-- **A separate tmux skill exists for tmux itself.** When agents *do*
+- **A separate tmux skill exists for tmux itself.** When agents _do_
   need direct tmux help — debugging layouts, authoring scripts — the
   `tmux:tmux` skill covers that. The two are complementary, not
   redundant.
