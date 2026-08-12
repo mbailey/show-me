@@ -27,11 +27,11 @@ source "${_look_at_dir}/../../show-me/scripts/lib/socket-dir.sh"
 unset _look_at_src _look_at_dir
 
 # Socket path show-me creates for a tmux pane (accepts %15 or 15). The
-# nvim-show-pane- prefix mirrors show-me's socket sites; the directory comes
+# nvim-tmux-pane- prefix mirrors show-me's socket sites; the directory comes
 # from the shared get_socket_dir above, so the two cannot drift apart.
 show_me_socket_path() {
   local pane_id="$1"
-  echo "$(get_socket_dir)/nvim-show-pane-${pane_id#%}"
+  echo "$(get_socket_dir)/nvim-tmux-pane-${pane_id#%}"
 }
 
 show_help() {

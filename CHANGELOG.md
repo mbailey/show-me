@@ -4,6 +4,17 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: nvim socket prefix renamed `nvim-show-pane-` ->
+  `nvim-tmux-pane-` (issue #33, Q2).** The on-disk socket path changes
+  from `$(get_socket_dir)/nvim-show-pane-<pane_id>` to
+  `$(get_socket_dir)/nvim-tmux-pane-<pane_id>`. Anything outside this
+  repo that references the old path — user scripts, config, tooling that
+  attaches to the socket directly — breaks and must switch to the new
+  name. Producer (`show-me`), consumer (`look-at`), tests, and docs all
+  move together. Rides the next minor release.
+
 ### Fixed
 
 - **show-me and look-at anchor "current window" on the invoking pane, not the

@@ -180,7 +180,7 @@ If nvim-remote is available, show-me uses it for enhanced features:
 
 Without nvim-remote, show-me:
 
-- Uses calculated socket paths: `<socket dir>/nvim-show-pane-<pane_id>`, where
+- Uses calculated socket paths: `<socket dir>/nvim-tmux-pane-<pane_id>`, where
   the socket dir is the private temp directory (`$TMPDIR`, else
   `$XDG_RUNTIME_DIR`, else `~/.local/run`) — not world-readable `/tmp`
 - Uses direct `nvim --server` commands for file operations

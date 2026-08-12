@@ -279,7 +279,7 @@ fi
 
 # Test stale socket cleanup
 socket_dir=$(get_socket_dir)
-stale_socket="${socket_dir}/nvim-show-pane-99999"
+stale_socket="${socket_dir}/nvim-tmux-pane-99999"
 # Create a stale socket file (regular file, not a real socket — simulates stale)
 if [[ -n "${TMUX:-}" ]]; then
   # Only run stale socket test inside tmux where list-panes works
@@ -373,7 +373,7 @@ if [[ -n "${TMUX:-}" ]] && command -v nvim >/dev/null 2>&1; then
   # Tidy: remove sockets for the test panes, kill the session, drop temp files.
   cc_sockdir=$(get_socket_dir)
   tmux list-panes -t "$cc_sess" -F '#{pane_id}' 2>/dev/null | while read -r p; do
-    rm -f "${cc_sockdir}/nvim-show-pane-${p#%}" 2>/dev/null || true
+    rm -f "${cc_sockdir}/nvim-tmux-pane-${p#%}" 2>/dev/null || true
   done
   tmux kill-session -t "$cc_sess" 2>/dev/null || true
   rm -rf "$cc_tmp"
@@ -1080,7 +1080,7 @@ fi
 
 # --- look-at socket discovery (issue #33) ---
 # look-at (consumer) must derive exactly the socket path show-me (producer)
-# creates: $(get_socket_dir)/nvim-show-pane-<pane_id>. It used to hardcode
+# creates: $(get_socket_dir)/nvim-tmux-pane-<pane_id>. It used to hardcode
 # /tmp/nvim-tmux-pane-<id>, which never matched, so the socket read always
 # failed and look-at silently fell back to a screen-scrape.
 echo ""
@@ -1104,13 +1104,13 @@ fi
 
 # THE issue #33 fix: look-at derives a byte-identical path to the one
 # show-me constructs for the same pane id. show-me's side is its literal
-# construction (get_socket_dir + nvim-show-pane-<id>); look-at's side is
+# construction (get_socket_dir + nvim-tmux-pane-<id>); look-at's side is
 # show_me_socket_path(). Sourced in separate subshells (both mains are
 # guarded).
 sm33_path=$(
   # shellcheck disable=SC1090
   source "$SHOW" >/dev/null 2>&1 || true
-  echo "$(get_socket_dir)/nvim-show-pane-42"
+  echo "$(get_socket_dir)/nvim-tmux-pane-42"
 )
 la33_path=$(
   # shellcheck disable=SC1090
@@ -1175,7 +1175,7 @@ if [[ -n "${TMUX:-}" ]] && command -v nvim >/dev/null 2>&1; then
   # Tidy: remove the test panes' sockets, kill the session, drop temp files.
   la_sockdir=$(get_socket_dir)
   tmux list-panes -t "$la_sess" -F '#{pane_id}' 2>/dev/null | while read -r p; do
-    rm -f "${la_sockdir}/nvim-show-pane-${p#%}" 2>/dev/null || true
+    rm -f "${la_sockdir}/nvim-tmux-pane-${p#%}" 2>/dev/null || true
   done
   tmux kill-session -t "$la_sess" 2>/dev/null || true
   rm -rf "$la_tmp"

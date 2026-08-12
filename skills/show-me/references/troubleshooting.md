@@ -8,7 +8,7 @@ Common issues and solutions for show-me commands.
 
 ```bash
 nvim-socket list                    # From neovim package
-ls "${TMPDIR:-/tmp}"/nvim-show-pane-*   # Socket files (private tmp dir, not /tmp)
+ls "${TMPDIR:-/tmp}"/nvim-tmux-pane-*   # Socket files (private tmp dir, not /tmp)
 ```
 
 show-me puts sockets in the private temp directory: `$TMPDIR`, else
@@ -68,19 +68,19 @@ look-at -l 50                 # Get last 50 lines
    shown — the same path show-me creates):
 
 ```bash
-nvim --listen "${TMPDIR:-/tmp}/nvim-show-pane-15" file.txt
+nvim --listen "${TMPDIR:-/tmp}/nvim-tmux-pane-15" file.txt
 ```
 
 2. Check socket is responsive:
 
 ```bash
-nvim --server "${TMPDIR:-/tmp}/nvim-show-pane-15" --remote-expr "1"
+nvim --server "${TMPDIR:-/tmp}/nvim-tmux-pane-15" --remote-expr "1"
 ```
 
 3. List available sockets:
 
 ```bash
-ls "${TMPDIR:-/tmp}"/nvim-show-pane-*
+ls "${TMPDIR:-/tmp}"/nvim-tmux-pane-*
 ```
 
 ## look-at: Wrong pane captured
