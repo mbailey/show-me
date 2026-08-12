@@ -22,19 +22,21 @@ SHOW_HTML_OPEN="${SHOW_HTML_OPEN:-browser}"  # 'browser' (default) or 'editor'. 
 SHOW_CWD=""  # --cwd PATH: working directory for cmd: targets (SHOW-102). Empty = caller's cwd (unchanged behavior). No env var: set only via the flag.
 SHOW_NVIM_STARTUP_TIMEOUT="${SHOW_NVIM_STARTUP_TIMEOUT:-10}"  # Seconds to wait for a freshly started nvim to become responsive (SHOW-110). Early-exits the instant nvim answers, so a larger value only costs time on genuine startup failure. Raised from the old hard-coded 3s: cold starts with heavy configs (dashboard/LSP/treesitter) can exceed 3s, which made rapid callers spawn duplicate panes.
 
-# Get private socket directory for security
-# Returns user-private directory instead of world-readable /tmp
-get_socket_dir() {
-  if [[ -n "${TMPDIR:-}" && -d "$TMPDIR" ]]; then
-    echo "$TMPDIR"
-  elif [[ -n "${XDG_RUNTIME_DIR:-}" && -d "$XDG_RUNTIME_DIR" ]]; then
-    echo "$XDG_RUNTIME_DIR"
-  else
-    local fallback="$HOME/.local/run"
-    mkdir -p "$fallback" && chmod 700 "$fallback"
-    echo "$fallback"
-  fi
-}
+# get_socket_dir comes from the shared helper lib/socket-dir.sh so show-me
+# (socket producer) and look-at (socket consumer) agree on the directory
+# (issue #33). Resolve symlinks first: bin/show-me (and installer links like
+# ~/.metool/bin/show-me) point at this file's real home in
+# skills/show-me/scripts/, which is where lib/ lives.
+_show_me_src="${BASH_SOURCE[0]}"
+while [[ -L "$_show_me_src" ]]; do
+  _show_me_dir="$(cd "$(dirname "$_show_me_src")" && pwd)"
+  _show_me_src="$(readlink "$_show_me_src")"
+  [[ "$_show_me_src" == /* ]] || _show_me_src="${_show_me_dir}/${_show_me_src}"
+done
+_show_me_dir="$(cd "$(dirname "$_show_me_src")" && pwd)"
+# shellcheck source=lib/socket-dir.sh
+source "${_show_me_dir}/lib/socket-dir.sh"
+unset _show_me_src _show_me_dir
 
 # Window that the invoking process lives in, as a tmux target (e.g. @33).
 #
