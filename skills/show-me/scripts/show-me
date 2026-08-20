@@ -36,6 +36,22 @@ get_socket_dir() {
   fi
 }
 
+# Window that the invoking process lives in, as a tmux target (e.g. @33).
+#
+# tmux resolves an UNTARGETED command's "current window" from the attached
+# client's focus, not from the caller's pane. When the user is looking at a
+# different window than the agent runs in, `tmux list-panes` with no -t scans
+# the user's window (issue #36). Anchor on TMUX_PANE instead; fall back to the
+# client's notion only when TMUX_PANE is unset or stale.
+current_window_id() {
+  local wid=""
+  if [[ -n "${TMUX_PANE:-}" ]]; then
+    wid=$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null || true)
+  fi
+  [[ -z "$wid" ]] && wid=$(tmux display-message -p '#{window_id}' 2>/dev/null || true)
+  [[ -n "$wid" ]] && echo "$wid"
+}
+
 # Get target tmux session based on configuration and context
 # Priority: 1. Explicit flag, 2. Env var, 3. Current session, 4. Attached, 5. Any, 6. Create
 get_target_session() {
@@ -47,9 +63,9 @@ get_target_session() {
     return 0
   fi
 
-  # Priority 3: Current tmux session (if running inside tmux)
+  # Priority 3: Session of the invoking pane (not the client's focus, issue #36)
   if [[ -n "${TMUX:-}" ]]; then
-    tmux display-message -p '#{session_name}'
+    tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} '#{session_name}'
     return 0
   fi
 
@@ -401,9 +417,10 @@ find_nvim_show_pane() {
   local socket_dir
   socket_dir=$(get_socket_dir)
 
-  # Get all pane IDs in the current window only
-  local pane_ids
-  pane_ids=$(tmux list-panes -F '#{pane_id}')
+  # Get all pane IDs in the invoking pane's window only (issue #36)
+  local window_id pane_ids
+  window_id=$(current_window_id)
+  pane_ids=$(tmux list-panes ${window_id:+-t "$window_id"} -F '#{pane_id}')
 
   local pane_id
   for pane_id in $pane_ids; do

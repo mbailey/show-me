@@ -50,13 +50,13 @@ EOF
 get_tmux_hierarchy() {
   local current_session current_window current_pane
 
-  # Get current location
-  if ! current_session=$(tmux display-message -p "#{session_name}" 2>/dev/null); then
+  # Current location = the invoking pane's, not the client's focus (issue #36)
+  if ! current_session=$(tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} "#{session_name}" 2>/dev/null); then
     echo "Not in tmux"
     return 1
   fi
-  current_window=$(tmux display-message -p "#{window_index}" 2>/dev/null)
-  current_pane=$(tmux display-message -p "#{pane_id}" 2>/dev/null)
+  current_window=$(tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} "#{window_index}" 2>/dev/null)
+  current_pane=$(tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} "#{pane_id}" 2>/dev/null)
 
   echo "Tmux summary:"
 
@@ -224,8 +224,8 @@ get_panes_to_capture() {
   local target="${1:-}"
 
   if [[ -z "$target" ]]; then
-    # Current pane
-    tmux display-message -p "#{pane_id}" 2>/dev/null
+    # Current pane: the invoking pane, not the client's focus (issue #36)
+    tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} "#{pane_id}" 2>/dev/null
     return
   fi
 
@@ -236,8 +236,8 @@ get_panes_to_capture() {
   fi
 
   if [[ "$target" == "window" ]]; then
-    # All panes in current window
-    tmux list-panes -F "#{pane_id}" 2>/dev/null
+    # All panes in the invoking pane's window (issue #36)
+    tmux list-panes ${TMUX_PANE:+-t "$TMUX_PANE"} -F "#{pane_id}" 2>/dev/null
     return
   fi
 

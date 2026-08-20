@@ -4,6 +4,16 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **show-me and look-at anchor "current window" on the invoking pane, not the
+  user's focus (issue #36).** tmux resolves an untargeted command's current
+  window from the attached client, so when the user was viewing a different
+  window, `show-me <file>` reused that window's nvim (or, with none there,
+  spawned a duplicate in the agent's window) and `look-at` read the wrong
+  pane. Discovery now resolves the window from `TMUX_PANE`, matching what
+  the pane-creation and `--restack` paths already did.
+
 ## [3.1.0] - 2026-07-10
 
 ### Added
