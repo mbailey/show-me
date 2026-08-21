@@ -9,14 +9,19 @@
 
 # Get private socket directory for security
 # Returns user-private directory instead of world-readable /tmp
+#
+# Trailing slashes are stripped (macOS sets TMPDIR with one), so derived
+# socket paths compare equal as strings across producers and consumers.
 get_socket_dir() {
+  local dir
   if [[ -n "${TMPDIR:-}" && -d "$TMPDIR" ]]; then
-    echo "$TMPDIR"
+    dir="$TMPDIR"
   elif [[ -n "${XDG_RUNTIME_DIR:-}" && -d "$XDG_RUNTIME_DIR" ]]; then
-    echo "$XDG_RUNTIME_DIR"
+    dir="$XDG_RUNTIME_DIR"
   else
-    local fallback="$HOME/.local/run"
-    mkdir -p "$fallback" && chmod 700 "$fallback"
-    echo "$fallback"
+    dir="$HOME/.local/run"
+    mkdir -p "$dir" && chmod 700 "$dir"
   fi
+  while [[ "$dir" == */ && "$dir" != "/" ]]; do dir="${dir%/}"; done
+  echo "$dir"
 }

@@ -1135,6 +1135,23 @@ else
   fail "show_me_socket_path %-prefix handling (got '$la33_bare' vs '$la33_path')"
 fi
 
+# get_socket_dir must never end in a slash. macOS sets TMPDIR with a trailing
+# slash, which made every derived socket path `.../T//nvim-tmux-pane-<id>`:
+# fine for open(2), but a false mismatch for any consumer comparing paths as
+# strings — and this path is now a published contract.
+sd_tmp=$(mktemp -d)
+sd_out=$(
+  # shellcheck disable=SC1090
+  source "$SHOW" >/dev/null 2>&1 || true
+  TMPDIR="${sd_tmp}/" get_socket_dir
+)
+if [[ "$sd_out" == "$sd_tmp" ]]; then
+  pass "get_socket_dir strips a trailing slash from TMPDIR"
+else
+  fail "get_socket_dir trailing slash (got '$sd_out', expected '$sd_tmp')"
+fi
+rmdir "$sd_tmp"
+
 # Integration: a file opened via show-me is visible to look-at THROUGH THE
 # SOCKET — output carries File:/Position:/Mode:, not the screen-scrape
 # fallback ("Working directory:"). look-at is executed inside the scratch
