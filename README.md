@@ -184,6 +184,9 @@ Without nvim-remote, show-me:
   the socket dir is the private temp directory (`$TMPDIR`, else
   `$XDG_RUNTIME_DIR`, else `~/.local/run`) — not world-readable `/tmp`
 - Uses direct `nvim --server` commands for file operations
+- Other tools derive the same path with `get-socket` (`dir`, `path <pane>`,
+  `list`) instead of hardcoding it — e.g. `nvim --listen "$(get-socket path
+  "$TMUX_PANE")"` for a hand-launched nvim that show-me and look-at should see
 - **All core features work fully**
 
 ## Privacy

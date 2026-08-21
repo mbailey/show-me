@@ -25,7 +25,7 @@ test:
 lint:
 	@if command -v shellcheck >/dev/null 2>&1; then \
 		echo "Running shellcheck..."; \
-		shellcheck --severity=warning skills/show-me/scripts/show-me skills/look-at/scripts/look-at bin/release tests/test_show.sh && \
+		shellcheck --severity=warning skills/show-me/scripts/show-me skills/show-me/scripts/get-socket skills/look-at/scripts/look-at bin/release tests/test_show.sh && \
 		echo "shellcheck: clean"; \
 	else \
 		echo "shellcheck not installed — skipping (install with 'brew install shellcheck')"; \

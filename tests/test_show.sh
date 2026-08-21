@@ -1152,6 +1152,61 @@ else
 fi
 rmdir "$sd_tmp"
 
+# bin/get-socket: the executable contract for tools outside this repo
+# (nvim-socket, nvim-remote, a hand-launched nvim's serverstart()). Wraps the
+# same lib show-me and look-at source, so every consumer derives one path.
+echo ""
+echo "get-socket executable:"
+GETSOCK="${SCRIPT_DIR}/../bin/get-socket"
+if [[ -x "$GETSOCK" ]]; then
+  pass "bin/get-socket is executable"
+else
+  fail "bin/get-socket is executable"
+fi
+
+gs_dir=$("$GETSOCK" dir 2>/dev/null)
+gs_lib_dir=$(
+  # shellcheck disable=SC1090
+  source "$SHOW" >/dev/null 2>&1 || true
+  get_socket_dir
+)
+if [[ -n "$gs_dir" && "$gs_dir" == "$gs_lib_dir" ]]; then
+  pass "get-socket dir matches get_socket_dir"
+else
+  fail "get-socket dir (got '$gs_dir', lib says '$gs_lib_dir')"
+fi
+
+gs_p1=$("$GETSOCK" path %42 2>/dev/null)
+gs_p2=$("$GETSOCK" path 42 2>/dev/null)
+if [[ "$gs_p1" == "${gs_lib_dir}/nvim-tmux-pane-42" && "$gs_p1" == "$gs_p2" ]]; then
+  pass "get-socket path derives show-me's socket path (%42 and 42 alike)"
+else
+  fail "get-socket path (got '$gs_p1' / '$gs_p2')"
+fi
+
+if ! "$GETSOCK" path >/dev/null 2>&1 && ! "$GETSOCK" >/dev/null 2>&1 && ! "$GETSOCK" bogus >/dev/null 2>&1; then
+  pass "get-socket rejects missing/unknown subcommands"
+else
+  fail "get-socket rejects missing/unknown subcommands"
+fi
+
+# list: prints existing socket paths, one per line; empty when none.
+gs_tmp=$(mktemp -d)
+gs_list=$(TMPDIR="$gs_tmp" "$GETSOCK" list 2>/dev/null)
+if [[ -z "$gs_list" ]]; then
+  pass "get-socket list is empty with no sockets"
+else
+  fail "get-socket list empty (got '$gs_list')"
+fi
+: > "$gs_tmp/nvim-tmux-pane-7"
+gs_list=$(TMPDIR="$gs_tmp" "$GETSOCK" list 2>/dev/null)
+if [[ "$gs_list" == "$gs_tmp/nvim-tmux-pane-7" ]]; then
+  pass "get-socket list prints socket paths"
+else
+  fail "get-socket list (got '$gs_list')"
+fi
+rm -rf "$gs_tmp"
+
 # Integration: a file opened via show-me is visible to look-at THROUGH THE
 # SOCKET — output carries File:/Position:/Mode:, not the screen-scrape
 # fallback ("Working directory:"). look-at is executed inside the scratch

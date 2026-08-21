@@ -7,12 +7,14 @@ Common issues and solutions for show-me commands.
 1. Check if Neovim socket exists:
 
 ```bash
-nvim-socket list                    # From neovim package
-ls "${TMPDIR:-/tmp}"/nvim-tmux-pane-*   # Socket files (private tmp dir, not /tmp)
+get-socket list                     # Sockets show-me created (the authoritative list)
+get-socket path "$TMUX_PANE"        # The path show-me expects for this pane
+nvim-socket list                    # From neovim package (scans /tmp — may miss these)
 ```
 
 show-me puts sockets in the private temp directory: `$TMPDIR`, else
-`$XDG_RUNTIME_DIR`, else `~/.local/run`.
+`$XDG_RUNTIME_DIR`, else `~/.local/run`. `get-socket` is the one place that
+path is derived; tools that hardcode `/tmp` will not find them.
 
 2. Verify tmux is running:
 
@@ -68,19 +70,19 @@ look-at -l 50                 # Get last 50 lines
    shown — the same path show-me creates):
 
 ```bash
-nvim --listen "${TMPDIR:-/tmp}/nvim-tmux-pane-15" file.txt
+nvim --listen "$(get-socket path 15)" file.txt
 ```
 
 2. Check socket is responsive:
 
 ```bash
-nvim --server "${TMPDIR:-/tmp}/nvim-tmux-pane-15" --remote-expr "1"
+nvim --server "$(get-socket path 15)" --remote-expr "1"
 ```
 
 3. List available sockets:
 
 ```bash
-ls "${TMPDIR:-/tmp}"/nvim-tmux-pane-*
+get-socket list
 ```
 
 ## look-at: Wrong pane captured

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# get-socket - the executable contract for show-me's Neovim socket paths
+#
+# show-me (producer) and look-at (consumer) source lib/socket-dir.sh directly.
+# Tools outside this repo — nvim-socket, nvim-remote, a hand-launched nvim's
+# serverstart(), user scripts — cannot source a lib, so they call this instead
+# and derive exactly the path show-me creates (issue #33).
+#
+# Usage:
+#   get-socket dir            socket directory
+#   get-socket path <pane>    socket path for a tmux pane (%15 or 15)
+#   get-socket list           existing socket paths, one per line
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+SOCKET_PREFIX="nvim-tmux-pane-"
+
+# Resolve symlinks so bin/get-socket (and installer links) find the lib next
+# to this file's real home in skills/show-me/scripts/.
+_gs_src="${BASH_SOURCE[0]}"
+while [[ -L "$_gs_src" ]]; do
+  _gs_dir="$(cd "$(dirname "$_gs_src")" && pwd)"
+  _gs_src="$(readlink "$_gs_src")"
+  [[ "$_gs_src" == /* ]] || _gs_src="${_gs_dir}/${_gs_src}"
+done
+_gs_dir="$(cd "$(dirname "$_gs_src")" && pwd)"
+_gs_lib="${_gs_dir}/lib/socket-dir.sh"
+if [[ ! -r "$_gs_lib" ]]; then
+  echo "get-socket: missing helper $_gs_lib — reinstall show-me" >&2
+  exit 1
+fi
+# shellcheck source=lib/socket-dir.sh
+source "$_gs_lib"
+unset _gs_src _gs_dir _gs_lib
+
+usage() {
+  sed -n '/^# Usage:/,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+}
+
+main() {
+  local cmd="${1:-}"
+  case "$cmd" in
+    dir)
+      get_socket_dir
+      ;;
+    path)
+      local pane="${2:-}"
+      if [[ -z "$pane" ]]; then
+        echo "get-socket: path needs a pane id (%15 or 15)" >&2
+        exit 1
+      fi
+      echo "$(get_socket_dir)/${SOCKET_PREFIX}${pane#%}"
+      ;;
+    list)
+      local dir s
+      dir=$(get_socket_dir)
+      for s in "$dir/${SOCKET_PREFIX}"*; do
+        [[ -e "$s" ]] && echo "$s"
+      done
+      return 0
+      ;;
+    -h|--help|help)
+      usage
+      ;;
+    "")
+      usage >&2
+      exit 1
+      ;;
+    *)
+      echo "get-socket: unknown command '$cmd'" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"
