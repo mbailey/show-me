@@ -1034,6 +1034,50 @@ else
   fail "expected 2 highlight_line_range call sites, found $hlr_calls"
 fi
 
+# Issue #36: "current window" must be the INVOKING pane's window, not the
+# window the user's client happens to be looking at. tmux resolves an
+# untargeted command's current window from the client/session focus, so
+# `tmux list-panes` with no -t scans the wrong window when the user has
+# clicked elsewhere. Setup: window A holds the agent (leader), window B holds
+# a show-me nvim and is the session's current window. A file show invoked from
+# A's leader must open in A (a new nvim), not reuse B's nvim.
+if [[ -n "${TMUX:-}" ]] && command -v nvim >/dev/null 2>&1; then
+  fw_sess="smtest-issue36-$$"
+  tmux kill-session -t "$fw_sess" 2>/dev/null || true
+  tmux new-session -d -s "$fw_sess" -x 220 -y 60
+  fw_win_a=$(tmux display-message -p -t "$fw_sess" '#{window_id}')
+  fw_leader_a=$(tmux list-panes -t "$fw_win_a" -F '#{pane_id}' | head -1)
+  fw_win_b=$(tmux new-window -d -t "$fw_sess" -P -F '#{window_id}')
+  fw_leader_b=$(tmux list-panes -t "$fw_win_b" -F '#{pane_id}' | head -1)
+  fw_tmp=$(mktemp -d)
+  printf '# window-b marker\n' > "$fw_tmp/b.md"
+  printf '# window-a marker\n' > "$fw_tmp/a.md"
+
+  # Seed window B with a show-me nvim, then make B the session's current window.
+  TMUX_PANE="$fw_leader_b" "$SHOW" "$fw_tmp/b.md" >/dev/null 2>&1 || true
+  tmux select-window -t "$fw_win_b"
+
+  # Invoke from window A's leader while B is focused.
+  fw_out=$(TMUX_PANE="$fw_leader_a" "$SHOW" "$fw_tmp/a.md" 2>&1) || true
+
+  fw_nvim_in_a=$(tmux list-panes -t "$fw_win_a" -F '#{pane_current_command}' | grep -c '^nvim$' || true)
+  if [[ "$fw_nvim_in_a" -ge 1 ]] && ! echo "$fw_out" | grep -q "reused"; then
+    pass "file show from window A lands in A while the user views window B (issue #36)"
+  else
+    fail "file show followed the focused window (nvim panes in A=$fw_nvim_in_a, out=$fw_out)"
+  fi
+
+  # Tidy: drop the test panes' sockets (whatever prefix this build uses), kill the session.
+  fw_sockdir=$(get_socket_dir)
+  tmux list-panes -s -t "$fw_sess" -F '#{pane_id}' 2>/dev/null | while read -r p; do
+    rm -f "${fw_sockdir}"/nvim-*-pane-"${p#%}" 2>/dev/null || true
+  done
+  tmux kill-session -t "$fw_sess" 2>/dev/null || true
+  rm -rf "$fw_tmp"
+else
+  skip "issue #36 window anchoring (needs tmux + nvim)"
+fi
+
 # --- Summary ---
 echo ""
 echo "===================="
