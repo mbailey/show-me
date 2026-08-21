@@ -8,6 +8,37 @@ set -o nounset -o pipefail -o errexit
 
 VERSION="1.0.0"
 
+# get_socket_dir comes from the show-me skill's shared helper so look-at
+# (socket consumer) derives exactly the directory show-me (socket producer)
+# creates sockets in (issue #33). Resolve symlinks first: bin/look-at (and
+# installer links like ~/.metool/bin/look-at) point at this file's real home
+# in skills/look-at/scripts/; both skills always ship together in this repo,
+# so the cross-skill path is stable — no standalone fallback copy that could
+# drift back into the bug this fixes.
+_look_at_src="${BASH_SOURCE[0]}"
+while [[ -L "$_look_at_src" ]]; do
+  _look_at_dir="$(cd "$(dirname "$_look_at_src")" && pwd)"
+  _look_at_src="$(readlink "$_look_at_src")"
+  [[ "$_look_at_src" == /* ]] || _look_at_src="${_look_at_dir}/${_look_at_src}"
+done
+_look_at_dir="$(cd "$(dirname "$_look_at_src")" && pwd)"
+_look_at_lib="${_look_at_dir}/../../show-me/scripts/lib/socket-dir.sh"
+if [[ ! -r "$_look_at_lib" ]]; then
+  echo "look-at: missing helper $_look_at_lib — reinstall show-me (look-at ships with it)" >&2
+  exit 1
+fi
+# shellcheck source=../../show-me/scripts/lib/socket-dir.sh
+source "$_look_at_lib"
+unset _look_at_src _look_at_dir _look_at_lib
+
+# Socket path show-me creates for a tmux pane (accepts %15 or 15). The
+# nvim-tmux-pane- prefix mirrors show-me's socket sites; the directory comes
+# from the shared get_socket_dir above, so the two cannot drift apart.
+show_me_socket_path() {
+  local pane_id="$1"
+  echo "$(get_socket_dir)/nvim-tmux-pane-${pane_id#%}"
+}
+
 show_help() {
   cat <<EOF
 Usage: look-at [OPTIONS] [TARGET]
@@ -112,8 +143,11 @@ check_neovim_in_pane() {
 # Get Neovim info via socket
 get_neovim_info() {
   local pane_id="$1"
-  local numeric_id="${pane_id#%}"
-  local socket_path="/tmp/nvim-tmux-pane-${numeric_id}"
+  # The socket show-me creates for this pane. Previously a hardcoded /tmp
+  # path with a different name that never matched, so the socket read always
+  # failed and look-at silently fell back to the screen-scrape (issue #33).
+  local socket_path
+  socket_path=$(show_me_socket_path "$pane_id")
 
   # Check if socket exists
   if [[ ! -S "$socket_path" ]]; then

@@ -279,7 +279,7 @@ fi
 
 # Test stale socket cleanup
 socket_dir=$(get_socket_dir)
-stale_socket="${socket_dir}/nvim-show-pane-99999"
+stale_socket="${socket_dir}/nvim-tmux-pane-99999"
 # Create a stale socket file (regular file, not a real socket — simulates stale)
 if [[ -n "${TMUX:-}" ]]; then
   # Only run stale socket test inside tmux where list-panes works
@@ -373,7 +373,7 @@ if [[ -n "${TMUX:-}" ]] && command -v nvim >/dev/null 2>&1; then
   # Tidy: remove sockets for the test panes, kill the session, drop temp files.
   cc_sockdir=$(get_socket_dir)
   tmux list-panes -t "$cc_sess" -F '#{pane_id}' 2>/dev/null | while read -r p; do
-    rm -f "${cc_sockdir}/nvim-show-pane-${p#%}" 2>/dev/null || true
+    rm -f "${cc_sockdir}/nvim-tmux-pane-${p#%}" 2>/dev/null || true
   done
   tmux kill-session -t "$cc_sess" 2>/dev/null || true
   rm -rf "$cc_tmp"
@@ -1076,6 +1076,200 @@ if [[ -n "${TMUX:-}" ]] && command -v nvim >/dev/null 2>&1; then
   rm -rf "$fw_tmp"
 else
   skip "issue #36 window anchoring (needs tmux + nvim)"
+fi
+
+# --- look-at socket discovery (issue #33) ---
+# look-at (consumer) must derive exactly the socket path show-me (producer)
+# creates: $(get_socket_dir)/nvim-tmux-pane-<pane_id>. It used to hardcode
+# /tmp/nvim-tmux-pane-<id>, which never matched, so the socket read always
+# failed and look-at silently fell back to a screen-scrape.
+echo ""
+echo "look-at socket discovery (issue #33):"
+
+# The hardcoded /tmp path is gone from look-at's source.
+if ! grep -q '/tmp/nvim-tmux-pane' "$LOOK"; then
+  pass "look-at has no hardcoded /tmp/nvim-tmux-pane path"
+else
+  fail "look-at still hardcodes /tmp/nvim-tmux-pane"
+fi
+
+# get_socket_dir is defined exactly once, in the shared sourced helper —
+# both scripts source it, neither carries a copy that could drift.
+gsd_defs=$(grep -rl '^get_socket_dir() {' "${SCRIPT_DIR}/../skills" 2>/dev/null)
+if [[ "$gsd_defs" == *"lib/socket-dir.sh"* && "$(wc -l <<<"$gsd_defs" | tr -d ' ')" == "1" ]]; then
+  pass "get_socket_dir defined once, in the shared lib/socket-dir.sh"
+else
+  fail "get_socket_dir should be defined only in lib/socket-dir.sh (found: $(tr '\n' ' ' <<<"$gsd_defs"))"
+fi
+
+# THE issue #33 fix: look-at derives a byte-identical path to the one
+# show-me constructs for the same pane id. show-me's side is its literal
+# construction (get_socket_dir + nvim-tmux-pane-<id>); look-at's side is
+# show_me_socket_path(). Sourced in separate subshells (both mains are
+# guarded).
+sm33_path=$(
+  # shellcheck disable=SC1090
+  source "$SHOW" >/dev/null 2>&1 || true
+  echo "$(get_socket_dir)/nvim-tmux-pane-42"
+)
+la33_path=$(
+  # shellcheck disable=SC1090
+  source "$LOOK" >/dev/null 2>&1 || true
+  show_me_socket_path %42
+)
+if [[ -n "$sm33_path" && "$sm33_path" == "$la33_path" ]]; then
+  pass "look-at derives the socket path show-me creates ($la33_path)"
+else
+  fail "look-at derivation diverges (show-me: '$sm33_path', look-at: '$la33_path')"
+fi
+
+# And the %-prefix is optional (tmux pane ids arrive both ways).
+la33_bare=$(
+  # shellcheck disable=SC1090
+  source "$LOOK" >/dev/null 2>&1 || true
+  show_me_socket_path 42
+)
+if [[ -n "$la33_bare" && "$la33_bare" == "$la33_path" ]]; then
+  pass "show_me_socket_path accepts %42 and 42 identically"
+else
+  fail "show_me_socket_path %-prefix handling (got '$la33_bare' vs '$la33_path')"
+fi
+
+# get_socket_dir must never end in a slash. macOS sets TMPDIR with a trailing
+# slash, which made every derived socket path `.../T//nvim-tmux-pane-<id>`:
+# fine for open(2), but a false mismatch for any consumer comparing paths as
+# strings — and this path is now a published contract.
+sd_tmp=$(mktemp -d)
+sd_out=$(
+  # shellcheck disable=SC1090
+  source "$SHOW" >/dev/null 2>&1 || true
+  TMPDIR="${sd_tmp}/" get_socket_dir
+)
+if [[ "$sd_out" == "$sd_tmp" ]]; then
+  pass "get_socket_dir strips a trailing slash from TMPDIR"
+else
+  fail "get_socket_dir trailing slash (got '$sd_out', expected '$sd_tmp')"
+fi
+rmdir "$sd_tmp"
+
+# bin/get-socket: the executable contract for tools outside this repo
+# (nvim-socket, nvim-remote, a hand-launched nvim's serverstart()). Wraps the
+# same lib show-me and look-at source, so every consumer derives one path.
+echo ""
+echo "get-socket executable:"
+GETSOCK="${SCRIPT_DIR}/../bin/get-socket"
+if [[ -x "$GETSOCK" ]]; then
+  pass "bin/get-socket is executable"
+else
+  fail "bin/get-socket is executable"
+fi
+
+gs_dir=$("$GETSOCK" dir 2>/dev/null)
+gs_lib_dir=$(
+  # shellcheck disable=SC1090
+  source "$SHOW" >/dev/null 2>&1 || true
+  get_socket_dir
+)
+if [[ -n "$gs_dir" && "$gs_dir" == "$gs_lib_dir" ]]; then
+  pass "get-socket dir matches get_socket_dir"
+else
+  fail "get-socket dir (got '$gs_dir', lib says '$gs_lib_dir')"
+fi
+
+gs_p1=$("$GETSOCK" path %42 2>/dev/null)
+gs_p2=$("$GETSOCK" path 42 2>/dev/null)
+if [[ "$gs_p1" == "${gs_lib_dir}/nvim-tmux-pane-42" && "$gs_p1" == "$gs_p2" ]]; then
+  pass "get-socket path derives show-me's socket path (%42 and 42 alike)"
+else
+  fail "get-socket path (got '$gs_p1' / '$gs_p2')"
+fi
+
+if ! "$GETSOCK" path >/dev/null 2>&1 && ! "$GETSOCK" >/dev/null 2>&1 && ! "$GETSOCK" bogus >/dev/null 2>&1; then
+  pass "get-socket rejects missing/unknown subcommands"
+else
+  fail "get-socket rejects missing/unknown subcommands"
+fi
+
+# list: prints existing socket paths, one per line; empty when none.
+gs_tmp=$(mktemp -d)
+gs_list=$(TMPDIR="$gs_tmp" "$GETSOCK" list 2>/dev/null)
+if [[ -z "$gs_list" ]]; then
+  pass "get-socket list is empty with no sockets"
+else
+  fail "get-socket list empty (got '$gs_list')"
+fi
+: > "$gs_tmp/nvim-tmux-pane-7"
+gs_list=$(TMPDIR="$gs_tmp" "$GETSOCK" list 2>/dev/null)
+if [[ "$gs_list" == "$gs_tmp/nvim-tmux-pane-7" ]]; then
+  pass "get-socket list prints socket paths"
+else
+  fail "get-socket list (got '$gs_list')"
+fi
+rm -rf "$gs_tmp"
+
+# A missing lib must fail with a message that names the cause, not bash's
+# bare "No such file or directory" from errexit. Copy the scripts somewhere
+# with no lib/ beside them and run --help.
+mh_tmp=$(mktemp -d)
+cp "${SCRIPT_DIR}/../skills/look-at/scripts/look-at" "$mh_tmp/look-at"
+cp "${SCRIPT_DIR}/../skills/show-me/scripts/show-me" "$mh_tmp/show-me"
+for mh_tool in look-at show-me; do
+  mh_rc=0
+  mh_out=$("$mh_tmp/$mh_tool" --help 2>&1) || mh_rc=$?
+  if [[ "$mh_rc" -ne 0 ]] && echo "$mh_out" | grep -q "missing helper"; then
+    pass "$mh_tool names the missing socket-dir helper instead of a bare bash error"
+  else
+    fail "$mh_tool missing-helper message (rc=$mh_rc, out=$(echo "$mh_out" | head -2 | tr '\n' '|'))"
+  fi
+done
+rm -rf "$mh_tmp"
+
+# Integration: a file opened via show-me is visible to look-at THROUGH THE
+# SOCKET — output carries File:/Position:/Mode:, not the screen-scrape
+# fallback ("Working directory:"). look-at is executed inside the scratch
+# session's leader pane so it runs in a real tmux context.
+if [[ -n "${TMUX:-}" ]] && command -v nvim >/dev/null 2>&1; then
+  la_sess="smtest-issue33-$$"
+  tmux kill-session -t "$la_sess" 2>/dev/null || true
+  tmux new-session -d -s "$la_sess" -x 220 -y 60
+  la_leader=$(tmux list-panes -t "$la_sess" -F '#{pane_id}' | head -1)
+  la_tmp=$(mktemp -d)
+  printf '# issue-33 marker\n' > "$la_tmp/issue33.md"
+
+  TMUX_PANE="$la_leader" "$SHOW" "$la_tmp/issue33.md" >/dev/null 2>&1 || true
+
+  la_nvim_pane=$(tmux list-panes -t "$la_sess" -F '#{pane_id} #{pane_current_command}' \
+    | awk '/ nvim$/{print $1; exit}')
+  if [[ -n "$la_nvim_pane" ]]; then
+    la_out_file="$la_tmp/look.out"
+    tmux send-keys -t "$la_leader" \
+      "'$LOOK' $la_nvim_pane > '$la_out_file' 2>&1" Enter
+    la_ok=""
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+      sleep 0.5
+      if [[ -s "$la_out_file" ]] && grep -q "File:.*issue33.md" "$la_out_file"; then
+        la_ok="yes"
+        break
+      fi
+    done
+    if [[ -n "$la_ok" ]] && grep -q "Position: line" "$la_out_file"; then
+      pass "look-at reads file+cursor through show-me's socket (no scrape fallback)"
+    else
+      fail "look-at socket read failed (output: $(cat "$la_out_file" 2>/dev/null | head -5 | tr '\n' '|'))"
+    fi
+  else
+    fail "show-me did not launch an nvim pane for the integration check"
+  fi
+
+  # Tidy: remove the test panes' sockets, kill the session, drop temp files.
+  la_sockdir=$(get_socket_dir)
+  tmux list-panes -t "$la_sess" -F '#{pane_id}' 2>/dev/null | while read -r p; do
+    rm -f "${la_sockdir}/nvim-tmux-pane-${p#%}" 2>/dev/null || true
+  done
+  tmux kill-session -t "$la_sess" 2>/dev/null || true
+  rm -rf "$la_tmp"
+else
+  skip "look-at socket discovery integration (needs tmux + nvim)"
 fi
 
 # --- Summary ---

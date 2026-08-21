@@ -4,6 +4,28 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`get-socket` executable (issue #33).** The callable contract for the
+  socket path: `get-socket dir`, `get-socket path <pane>` (`%15` or `15`),
+  `get-socket list`. `show-me` and `look-at` source the same helper
+  directly; tools outside this repo — `nvim-socket`, `nvim-remote`, a
+  hand-launched nvim's `serverstart()`, user scripts — call this instead of
+  hardcoding a path. Note: those external tools still need to adopt it;
+  `nvim-socket` in `mbailey/neovim` scans `/tmp` today and does not see
+  show-me's sockets until it does.
+
+### Changed
+
+- **BREAKING: nvim socket prefix renamed `nvim-show-pane-` ->
+  `nvim-tmux-pane-` (issue #33, Q2).** The on-disk socket path changes
+  from `$(get_socket_dir)/nvim-show-pane-<pane_id>` to
+  `$(get_socket_dir)/nvim-tmux-pane-<pane_id>`. Anything outside this
+  repo that references the old path — user scripts, config, tooling that
+  attaches to the socket directly — breaks and must switch to the new
+  name. Producer (`show-me`), consumer (`look-at`), tests, and docs all
+  move together. Rides the next minor release.
+
 ### Fixed
 
 - **show-me and look-at anchor "current window" on the invoking pane, not the
@@ -13,6 +35,24 @@ All notable changes to show-me will be documented in this file.
   spawned a duplicate in the agent's window) and `look-at` read the wrong
   pane. Discovery now resolves the window from `TMUX_PANE`, matching what
   the pane-creation and `--restack` paths already did.
+
+- **look-at now discovers show-me's nvim socket (issue #33).** `look-at`
+  read a hardcoded `/tmp/nvim-tmux-pane-<id>` path while `show-me` creates
+  sockets at `$(get_socket_dir)/nvim-show-pane-<id>`, so a file opened via
+  `show-me` was invisible to `look-at`'s socket read and it silently fell
+  back to a screen-scrape (working directory only — no file/cursor/mode).
+  `look-at` now derives the exact path `show-me` creates. The
+  `get_socket_dir` logic moved to a shared sourced helper
+  (`skills/show-me/scripts/lib/socket-dir.sh`) used by both scripts, so
+  producer and consumer cannot drift apart again.
+
+- **`get_socket_dir` strips trailing slashes.** macOS sets `TMPDIR` with
+  one, so derived socket paths were `.../T//nvim-tmux-pane-<id>`; consumers
+  comparing paths as strings saw a false mismatch.
+
+- **Missing socket-dir helper fails with a named error.** Both scripts run
+  under `errexit`; a missing `lib/socket-dir.sh` used to abort even `--help`
+  with bash's bare "No such file or directory".
 
 ## [3.1.0] - 2026-07-10
 

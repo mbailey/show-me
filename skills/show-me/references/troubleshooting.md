@@ -5,17 +5,25 @@ Common issues and solutions for show-me commands.
 ## show-me: File doesn't open
 
 1. Check if Neovim socket exists:
+
 ```bash
-nvim-socket list              # From neovim package
-ls /tmp/nvim-tmux-pane-*      # Socket files
+get-socket list                     # Sockets show-me created (the authoritative list)
+get-socket path "$TMUX_PANE"        # The path show-me expects for this pane
+nvim-socket list                    # From neovim package (scans /tmp — may miss these)
 ```
 
+show-me puts sockets in the private temp directory: `$TMPDIR`, else
+`$XDG_RUNTIME_DIR`, else `~/.local/run`. `get-socket` is the one place that
+path is derived; tools that hardcode `/tmp` will not find them.
+
 2. Verify tmux is running:
+
 ```bash
 tmux list-sessions
 ```
 
 3. Check the show session exists:
+
 ```bash
 tmux has-session -t show 2>/dev/null && echo "exists"
 ```
@@ -23,12 +31,14 @@ tmux has-session -t show 2>/dev/null && echo "exists"
 ## show-me: URL doesn't open
 
 Verify browser availability:
+
 ```bash
 which firefox                 # macOS/Linux
 ls /Applications/Firefox.app  # macOS
 ```
 
 Set a custom browser:
+
 ```bash
 export SHOW_BROWSER=Chrome
 show-me https://example.com
@@ -37,50 +47,60 @@ show-me https://example.com
 ## look-at: Empty output
 
 1. Ensure you're in a tmux session:
+
 ```bash
 echo $TMUX                    # Should show tmux socket path
 ```
 
 2. Check pane has content:
+
 ```bash
 tmux capture-pane -p          # Direct tmux capture
 ```
 
 3. Try with scrollback:
+
 ```bash
 look-at -l 50                 # Get last 50 lines
 ```
 
 ## look-at: Neovim not detected
 
-1. Verify Neovim is running with socket:
+1. Verify Neovim is running with the socket look-at expects (pane `%15`
+   shown — the same path show-me creates):
+
 ```bash
-nvim --listen /tmp/nvim-tmux-pane-15 file.txt
+nvim --listen "$(get-socket path 15)" file.txt
 ```
 
 2. Check socket is responsive:
+
 ```bash
-nvim --server /tmp/nvim-tmux-pane-15 --remote-expr "1"
+nvim --server "$(get-socket path 15)" --remote-expr "1"
 ```
 
 3. List available sockets:
+
 ```bash
-ls /tmp/nvim-tmux-pane-*
+get-socket list
 ```
 
 ## look-at: Wrong pane captured
 
 1. Check which pane you're in:
+
 ```bash
 echo $TMUX_PANE               # Current pane ID
 ```
 
 2. Use hierarchy to find the right pane:
+
 ```bash
 look-at -H                    # Shows all panes with IDs
 ```
 
 3. Target specific pane:
+
 ```bash
 look-at %15                   # Capture pane %15 specifically
 ```
