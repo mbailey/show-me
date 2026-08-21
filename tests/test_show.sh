@@ -1207,6 +1207,23 @@ else
 fi
 rm -rf "$gs_tmp"
 
+# A missing lib must fail with a message that names the cause, not bash's
+# bare "No such file or directory" from errexit. Copy the scripts somewhere
+# with no lib/ beside them and run --help.
+mh_tmp=$(mktemp -d)
+cp "${SCRIPT_DIR}/../skills/look-at/scripts/look-at" "$mh_tmp/look-at"
+cp "${SCRIPT_DIR}/../skills/show-me/scripts/show-me" "$mh_tmp/show-me"
+for mh_tool in look-at show-me; do
+  mh_rc=0
+  mh_out=$("$mh_tmp/$mh_tool" --help 2>&1) || mh_rc=$?
+  if [[ "$mh_rc" -ne 0 ]] && echo "$mh_out" | grep -q "missing helper"; then
+    pass "$mh_tool names the missing socket-dir helper instead of a bare bash error"
+  else
+    fail "$mh_tool missing-helper message (rc=$mh_rc, out=$(echo "$mh_out" | head -2 | tr '\n' '|'))"
+  fi
+done
+rm -rf "$mh_tmp"
+
 # Integration: a file opened via show-me is visible to look-at THROUGH THE
 # SOCKET — output carries File:/Position:/Mode:, not the screen-scrape
 # fallback ("Working directory:"). look-at is executed inside the scratch

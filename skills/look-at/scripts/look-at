@@ -22,9 +22,14 @@ while [[ -L "$_look_at_src" ]]; do
   [[ "$_look_at_src" == /* ]] || _look_at_src="${_look_at_dir}/${_look_at_src}"
 done
 _look_at_dir="$(cd "$(dirname "$_look_at_src")" && pwd)"
+_look_at_lib="${_look_at_dir}/../../show-me/scripts/lib/socket-dir.sh"
+if [[ ! -r "$_look_at_lib" ]]; then
+  echo "look-at: missing helper $_look_at_lib — reinstall show-me (look-at ships with it)" >&2
+  exit 1
+fi
 # shellcheck source=../../show-me/scripts/lib/socket-dir.sh
-source "${_look_at_dir}/../../show-me/scripts/lib/socket-dir.sh"
-unset _look_at_src _look_at_dir
+source "$_look_at_lib"
+unset _look_at_src _look_at_dir _look_at_lib
 
 # Socket path show-me creates for a tmux pane (accepts %15 or 15). The
 # nvim-tmux-pane- prefix mirrors show-me's socket sites; the directory comes

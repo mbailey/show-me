@@ -34,9 +34,14 @@ while [[ -L "$_show_me_src" ]]; do
   [[ "$_show_me_src" == /* ]] || _show_me_src="${_show_me_dir}/${_show_me_src}"
 done
 _show_me_dir="$(cd "$(dirname "$_show_me_src")" && pwd)"
+_show_me_lib="${_show_me_dir}/lib/socket-dir.sh"
+if [[ ! -r "$_show_me_lib" ]]; then
+  echo "show-me: missing helper $_show_me_lib — reinstall show-me" >&2
+  exit 1
+fi
 # shellcheck source=lib/socket-dir.sh
-source "${_show_me_dir}/lib/socket-dir.sh"
-unset _show_me_src _show_me_dir
+source "$_show_me_lib"
+unset _show_me_src _show_me_dir _show_me_lib
 
 # Window that the invoking process lives in, as a tmux target (e.g. @33).
 #
