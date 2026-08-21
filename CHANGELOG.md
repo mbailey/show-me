@@ -6,6 +6,13 @@ All notable changes to show-me will be documented in this file.
 
 ### Fixed
 
+- **`resolve_html_file_url` returns a physical path for files that do not
+  exist yet.** `realpath` fails on a missing file and the fallback used the
+  logical `$PWD`, so on macOS (`/var` -> `/private/var`) the URL and the test
+  disagreed. The directory is now resolved physically.
+
+### Fixed
+
 - **show-me and look-at anchor "current window" on the invoking pane, not the
   user's focus (issue #36).** tmux resolves an untargeted command's current
   window from the attached client, so when the user was viewing a different
