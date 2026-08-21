@@ -4,6 +4,17 @@ All notable changes to show-me will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`get-socket` executable (issue #33).** The callable contract for the
+  socket path: `get-socket dir`, `get-socket path <pane>` (`%15` or `15`),
+  `get-socket list`. `show-me` and `look-at` source the same helper
+  directly; tools outside this repo — `nvim-socket`, `nvim-remote`, a
+  hand-launched nvim's `serverstart()`, user scripts — call this instead of
+  hardcoding a path. Note: those external tools still need to adopt it;
+  `nvim-socket` in `mbailey/neovim` scans `/tmp` today and does not see
+  show-me's sockets until it does.
+
 ### Changed
 
 - **BREAKING: nvim socket prefix renamed `nvim-show-pane-` ->
@@ -34,6 +45,14 @@ All notable changes to show-me will be documented in this file.
   `get_socket_dir` logic moved to a shared sourced helper
   (`skills/show-me/scripts/lib/socket-dir.sh`) used by both scripts, so
   producer and consumer cannot drift apart again.
+
+- **`get_socket_dir` strips trailing slashes.** macOS sets `TMPDIR` with
+  one, so derived socket paths were `.../T//nvim-tmux-pane-<id>`; consumers
+  comparing paths as strings saw a false mismatch.
+
+- **Missing socket-dir helper fails with a named error.** Both scripts run
+  under `errexit`; a missing `lib/socket-dir.sh` used to abort even `--help`
+  with bash's bare "No such file or directory".
 
 ## [3.1.0] - 2026-07-10
 
