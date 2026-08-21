@@ -1324,9 +1324,20 @@ resolve_html_file_url() {
   fi
   local abs_path="$target"
   if [[ ! "$abs_path" =~ ^/ ]]; then
-    abs_path="$(pwd)/$abs_path"
+    abs_path="$(pwd -P)/$abs_path"
   fi
-  abs_path=$(realpath "$abs_path" 2>/dev/null || echo "$abs_path")
+  # realpath fails on a file that does not exist yet; resolve the directory
+  # physically instead so macOS's /var -> /private/var symlink never leaks
+  # a logical path into the URL.
+  local resolved
+  if resolved=$(realpath "$abs_path" 2>/dev/null); then
+    abs_path="$resolved"
+  else
+    local dir base
+    dir=$(dirname "$abs_path"); base=$(basename "$abs_path")
+    dir=$(cd -- "$dir" 2>/dev/null && pwd -P || echo "$dir")
+    abs_path="${dir}/${base}"
+  fi
   printf 'file://%s\n' "$abs_path"
 }
 
